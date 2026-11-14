@@ -25,17 +25,17 @@ const DROITS = {
 const SECTIONS = {
   accueil:      { t: "Accueil", i: "maison", g: "" },
   depot:        { t: "Au dépôt", i: "scan", g: "depot", s: "Scanner, sortir, rentrer" },
-  tournee:      { t: "Tournée", i: "camion", g: "depot", mod: "MO-RES", si: () => (S.metier || "loueur") === "loueur", s: "Livraisons et reprises" },
+  tournee:      { t: "Tournée", i: "itineraire", g: "depot", mod: "MO-RES", si: () => (S.metier || "loueur") === "loueur", s: "Livraisons et reprises" },
   preparer:     { t: "Préparer", i: "camion", g: "depot", mod: "MO-RES", s: "Les départs prévus" },
   recuperer:    { t: () => V("retourTitre") || "Retours", c: "Retours", i: "retour", g: "depot", si: () => aDesPrets() },
-  reception:    { t: "Réception", i: "camion", g: "depot", s: "Une livraison" },
+  reception:    { t: "Réception", i: "colis", g: "depot", s: "Une livraison" },
   zones:        { t: "Compter", i: "compter", g: "depot", s: "Une zone" },
   kits:         { t: "Kits", i: "kit", g: "depot", mod: "MO-KIT", si: () => S.kits.length > 0 },
   chercher:     { t: "Chercher", i: "loupe", g: "depot" },
-  jour:         { t: "Ma journée", i: "jour", g: "depot" },
+  jour:         { t: "Ma journée", i: "liste", g: "depot" },
   materiel:     { t: "Stock", i: "materiel", g: "gestion", droit: "stock" },
   reservations: { t: "Réservations", c: "Résas", i: "jour", g: "gestion", mod: "MO-RES", droit: "reserver" },
-  clients:      { t: () => motClients(), i: "equipe", g: "gestion", si: () => actif("MO-RES") || complet(), droit: "reserver" },
+  clients:      { t: () => motClients(), i: "carnet", g: "gestion", si: () => actif("MO-RES") || complet(), droit: "reserver" },
   commandes:    { t: "Commandes", c: "Achats", i: "bon", g: "gestion", mod: "MO-CMD", droit: "commander" },
   journal:      { t: "Journal", i: "journal", g: "gestion", droit: "stock" },
   analyses:     { t: "Analyses", i: "releve", g: "gestion", droit: "analyses" },
@@ -44,6 +44,8 @@ const SECTIONS = {
   installation: { t: "Installation", i: "abo", g: "compte", droit: "installation" },
 };
 const GROUPES = { depot: "Au dépôt", gestion: "Gestion", compte: "Compte" };
+// Sous un titre : une phrase de dix mots au plus. Le reste de l'explication s'ouvre par le bouton rond « ? » (utile en formation).
+const sousAide = (court, long) => `<details class="aide"><summary><span>${court}</span><i aria-hidden="true">?</i><span class="cache">Lire l'explication</span></summary><p>${long}</p></details>`;
 const titreCourt = k => (SECTIONS[k] && SECTIONS[k].c) || titreSection(k);
 const titreSection = k => { const s = SECTIONS[k]; return !s ? "" : typeof s.t === "function" ? s.t() : s.t; };
 
@@ -163,7 +165,7 @@ function bento(liste, limite) {
     const w = WIDGETS[k]; if (!w || (w.si && !w.si())) return "";
     window.largeurDemi = taille !== "l" && window.innerWidth >= 1100;
     const h = w.r(); window.largeurDemi = false;
-    return h ? `<section class="w w-${taille} ${w.nu ? "nu" : ""} ${w.cls || ""}">${h}</section>` : "";
+    return h ? `<section class="w w-${taille} ${w.nu ? "nu" : ""} ${w.cls || ""}" data-w="${k}">${h}</section>` : "";
   }).filter(Boolean);
   // Sur téléphone, l'accueil reste court : les blocs suivants s'ouvrent d'un geste.
   const cache = limite && blocs.length > limite + 1 ? blocs.length - limite : 0;
@@ -179,14 +181,18 @@ function wScan() {
 function wActions() {
   const n = aDesPrets() ? new Set(dehors().map(d => d.evenement)).size : 0;
   const attendues = S.commandes.filter(c => ["Envoyée", "Reçue en partie"].includes(c.statut)).length;
-  return `${actif("MO-RES") ? tuilePreparer() : ""}
+  // Une entrée n'est dite qu'une fois : pas de tuile pour ce qui est déjà dans la barre du bas (ou le menu de gauche) de ce rôle,
+  // ni pour une livraison que « À faire » montre déjà sur le même accueil.
+  const barre = cfg().barre.filter(k => permis(k)).slice(0, 3), double = k => barre.includes(k);
+  const avecTaches = (ALIAS[vue.nom] || vue.nom) === "accueil" && cfg().accueil.some(([k]) => k === "taches") && session.profil !== "chauffeur";
+  return `${actif("MO-RES") && !double("preparer") ? tuilePreparer() : ""}
   <div class="t-tuiles">
-    ${actif("MO-KIT") && S.kits.length ? `<button class="t-tuile" data-aller="kits"><span class="pastille">${I.kit}</span><div><b>Sortir un kit</b><small>Tout un ensemble d'un coup</small></div></button>` : ""}
-    ${aDesPrets() ? `<button class="t-tuile" data-aller="recuperer"><span class="pastille">${I.retour}</span><div><b>${V("retourTitre")}</b><small>${n} ${n > 1 ? V("retourSous") : V("retourSous").replace(/^(\S+?)s(\s|$)/, "$1$2").replace(/(prêté|sorti)s\b/, "$1")}</small></div></button>` : ""}
-    <button class="t-tuile" data-aller="reception"><span class="pastille">${I.camion}</span><div><b>Réceptionner une livraison</b><small>${attendues} attendue${attendues > 1 ? "s" : ""}</small></div></button>
-    <button class="t-tuile" data-aller="zones"><span class="pastille">${I.compter}</span><div><b>Compter une zone</b><small>Zone par zone</small></div></button>
-    <button class="t-tuile" data-aller="chercher"><span class="pastille">${I.loupe}</span><div><b>Chercher un objet</b><small>Sans étiquette sous la main</small></div></button>
-    <button class="t-tuile" data-aller="jour"><span class="pastille">${I.jour}</span><div><b>Ma journée</b><small>Ce que j'ai enregistré</small></div></button>
+    ${actif("MO-KIT") && S.kits.length && !double("kits") ? `<button class="t-tuile" data-aller="kits"><span class="pastille">${I.kit}</span><div><b>Sortir un kit</b></div></button>` : ""}
+    ${aDesPrets() && !double("recuperer") ? `<button class="t-tuile" data-aller="recuperer"><span class="pastille">${I.retour}</span><div><b>${V("retourTitre")}</b><small>${n} ${n > 1 ? V("retourSous") : V("retourSous").replace(/^(\S+?)s(\s|$)/, "$1$2").replace(/(prêté|sorti)s\b/, "$1")}</small></div></button>` : ""}
+    ${double("reception") || (avecTaches && attendues) ? "" : `<button class="t-tuile" data-aller="reception"><span class="pastille">${I[SECTIONS.reception.i]}</span><div><b>Réceptionner une livraison</b><small>${attendues} attendue${attendues > 1 ? "s" : ""}</small></div></button>`}
+    <button class="t-tuile" data-aller="zones"><span class="pastille">${I.compter}</span><div><b>Compter une zone</b></div></button>
+    <button class="t-tuile" data-aller="chercher"><span class="pastille">${I.loupe}</span><div><b>Chercher un objet</b></div></button>
+    ${double("jour") ? "" : `<button class="t-tuile" data-aller="jour"><span class="pastille">${I[SECTIONS.jour.i]}</span><div><b>Ma journée</b></div></button>`}
   </div>`;
 }
 
@@ -200,7 +206,7 @@ function taches() {
   if (aDesPrets()) S.reservations.filter(r => r.statut === "Partie" && r.fin <= auj && dehors().some(d => d.evenement === r.nom)).forEach(r =>
     l.push({ c: "retour", i: I.retour, t: "Retour attendu · " + r.nom, s: "Fin prévue " + dateCourte(r.fin), a: `data-ev="${esc(r.nom)}"` }));
   S.commandes.filter(c => ["Envoyée", "Reçue en partie"].includes(c.statut)).forEach(c =>
-    l.push({ c: "compter", i: I.camion, t: "Réceptionner · " + c.fournisseur, s: `${c.id} · ${c.lignes.reduce((t, x) => t + (x.qte - (x.recu || 0)), 0)} pièces attendues`, a: `data-recep="${c.id}"` }));
+    l.push({ c: "compter", i: I.colis, t: "Réceptionner · " + c.fournisseur, s: `${c.id} · ${c.lignes.reduce((t, x) => t + (x.qte - (x.recu || 0)), 0)} pièces attendues`, a: `data-recep="${c.id}"` }));
   if (droit("valider") && actif("MO-CMD")) S.commandes.filter(c => c.statut === "À valider").forEach(c =>
     l.push({ c: "marque", i: I.bon, t: "Valider · " + c.fournisseur, s: argent(c.total) + " HT", bouton: `<button class="btn petit plein" data-valider="${c.id}">Valider</button>` }));
   if (droit("commander") && actif("MO-CMD")) {
@@ -208,16 +214,25 @@ function taches() {
     if (n && !S.commandes.some(c => c.statut === "À valider")) l.push({ c: "attention", i: I.bon, t: "Commandes à préparer", s: `${n} objet${n > 1 ? "s" : ""} sous le seuil`, a: `data-aller="commandes"` });
   }
   if (complet() && droit("reserver")) evSansClient().slice(0, 2).forEach(ev => l.push({ c: "attention", i: I.equipe, t: "Indiquer le client · " + ev, s: "Pour des bons et des factures complets", a: `data-infos-ev="${esc(ev)}"` }));
-  if (metier().dlc) { const b = bientotPerimes(2); if (b.length) l.push({ c: "alerte", i: I.perte, t: "À utiliser en premier", s: b.slice(0, 2).map(x => x.a.nom).join(", "), a: `data-objet="${b[0].a.id}"` }); }
+  if (metier().dlc) { const b = bientotPerimes(2); if (b.length) l.push({ k: "dlc", c: "alerte", i: I.perte, t: "À utiliser en premier", s: b.slice(0, 2).map(x => x.a.nom).join(", "), a: `data-objet="${b[0].a.id}"` }); }
   return l;
 }
-function wTaches() {
-  const l = taches();
+// Sur l'accueil : quatre tâches, puis « Voir les n autres ». La liste entière s'ouvre d'un geste (et dans la feuille du panneau de pilotage).
+const TACHES_VUES = 4;
+let tachesToutes = false;
+function wTaches(tout) {
+  if (entree) tachesToutes = false;
+  // Le chauffeur voit sa tournée : les tâches du dépôt (préparer, réceptionner, compter) ne sont pas les siennes. Sa carte d'arrêt dit ce qui reste à charger.
+  if (!tout && session && session.profil === "chauffeur") return "";
+  // Une tâche qui a déjà son bloc sur le même écran (« À utiliser en premier ») n'est pas écrite deux fois.
+  const blocDates = !tout && vue.nom === "accueil" && cfg().accueil.some(([k]) => k === "peremption");
+  const l = taches().filter(x => !(x.k === "dlc" && blocDates));
+  const vus = tout || tachesToutes || l.length <= TACHES_VUES + 1 ? l : l.slice(0, TACHES_VUES), reste = l.length - vus.length;
   return `<h3 class="w-titre">À faire ${l.length ? `<span class="compte">${l.length}</span>` : ""}</h3>
-  ${l.length ? `<ul class="taches">${l.map(x => {
+  ${l.length ? `<ul class="taches">${vus.map(x => {
     const corps = `<span class="pastille">${x.i}</span><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small>${x.p !== undefined ? `<i class="barre"><i style="width:${Math.round(x.p * 100)}%"></i></i>` : ""}</span>`;
     return `<li>${x.bouton ? `<div class="tache c-${x.c}">${corps}${x.bouton}</div>` : `<button class="tache c-${x.c}" ${x.a}>${corps}<span class="chev">${I.fleche}</span></button>`}</li>`;
-  }).join("")}</ul>` : `<p class="vide" style="padding:4px 0">Rien en attente. Tout est à jour.</p>`}`;
+  }).join("")}</ul>${reste ? `<button class="btn petit taches-suite" data-taches-tout>Voir les ${reste} autres</button>` : ""}` : `<p class="vide" style="padding:4px 0">Rien en attente. Tout est à jour.</p>`}`;
 }
 
 /* Chiffres de la direction */
@@ -257,17 +272,20 @@ function wTrio() {
   const delta = (a, b, plusEstMieux) => {
     if (!b) return `<span class="delta">pas de période avant</span>`;
     const d = Math.round((a - b) / b * 100), mieux = plusEstMieux ? d >= 0 : d <= 0;
-    return `<span class="delta ${d === 0 ? "" : mieux ? "mieux" : "pire"}">${d > 0 ? "+" : ""}${d} % vs avant</span>`;
+    return `<span class="delta ${d === 0 ? "" : mieux ? "mieux" : "pire"}">${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d)} %</span>`;
   };
   return `<div class="w-entete"><h3 class="w-titre">Sur ${periode} jours</h3><div class="segments" role="group" aria-label="Période">${[7, 30, 90].map(n => `<button data-periode="${n}" aria-pressed="${periode === n}">${n} j</button>`).join("")}</div></div>
   <div class="trio">
     <div><small>${V("sortiesMot")}</small><b>${argent(s)}</b>${delta(s, sAvant, true)}</div>
     <div><small>Cassé ou perdu</small><b style="color:var(--alerte)">${argent(vp)}</b>${delta(vp, pAvant, false)}</div>
     ${(S.metier || "loueur") === "loueur" ? `<div><small>Refacturable</small><b>${argent(refac)}</b><span class="delta">${vp ? Math.round(refac / vp * 100) : 0} % des pertes</span></div>` : `<div><small>Taux de perte</small><b>${(s ? Math.round(vp / (s + vp) * 1000) / 10 : 0).toLocaleString("fr-FR")} %</b><span class="delta">de la valeur sortie</span></div>`}
-  </div>`;
+  </div>
+  ${sAvant || pAvant ? `<p class="w-note trio-note">Les pourcentages comparent aux ${periode} jours d'avant.</p>` : ""}`;
 }
 function wDecider() {
   const l = S.commandes.filter(c => c.statut === "À valider");
+  // Rien à décider : le voyant « à décider » du panneau le dit déjà, le bloc ne prend pas de place.
+  if (!l.length) return "";
   return `<h3 class="w-titre">À décider ${l.length ? `<span class="compte">${l.length}</span>` : ""}</h3>
   ${l.length ? l.map(c => `<div class="bon"><header><b>${esc(c.fournisseur)}</b><span>${argent(c.total)} HT</span></header><p class="sous">${c.lignes.map(x => x.qte + " × " + esc(art(x.id).nom)).join(", ")}</p><button class="btn plein" data-valider="${c.id}">Valider la commande</button></div>`).join("") : `<p class="vide" style="padding:4px 0">Rien n'attend votre accord.</p>`}`;
 }
@@ -283,6 +301,8 @@ function wChiffres() {
   </div>`;
 }
 function wAlertes() {
+  // Aucune alerte envoyée : le bloc ne s'affiche pas (ce qui est à commander a déjà son voyant et sa tâche).
+  if (!S.alertes.length && !S.messages.length) return "";
   return `<h3 class="w-titre">Alertes</h3>${S.alertes.length ? `<ul class="b-liste">${S.alertes.slice(0, 5).map(x => { const a = art(x.article); return `<li><button class="l" data-objet="${a.id}">${img(a)}<span><b>${esc(x.txt)}</b><small>${quand(x.date)}</small></span><span></span></button></li>`; }).join("")}</ul>` : `<p class="vide" style="padding:4px 0">Pas d'alerte depuis le début de la démo.</p>`}
   ${S.messages.length ? S.messages.slice(0, 2).map(m => `<div class="msg"><small>${m.canal} · ${quand(m.date)} · simulation</small>${esc(m.txt)}</div>`).join("") : ""}`;
 }
@@ -294,11 +314,15 @@ function wAssistance() {
   const inst = S.installation || { livreLe: Date.now(), heuresUtilisees: 0 };
   const jours = Math.max(0, Math.ceil((inst.livreLe + OFFRE.jours * J_MS - Date.now()) / J_MS)), h = Math.max(0, OFFRE.heures - inst.heuresUtilisees);
   const enCours = jours > 0 && h > 0;
+  // Sur l'accueil, l'assistance ne se montre que lorsqu'elle approche de sa fin (10 jours ou 1 heure), ou vient de se terminer (15 jours).
+  // Le reste du temps, elle se lit dans l'écran Installation.
+  const finLe = inst.livreLe + OFFRE.jours * J_MS, depuisPeu = Date.now() - finLe < 15 * J_MS;
+  if (enCours ? jours > 10 && h > 1 : !depuisPeu) return "";
   return `<button class="w-plein" data-aller="installation"><small>Assistance incluse</small><b class="w-moyen">${enCours ? String(h).replace(".", ",") + " h restantes" : "Terminée"}</b><small>${enCours ? `encore ${jours} jour${jours > 1 ? "s" : ""}` : "interventions sur devis"}</small></button>`;
 }
 
 /* Page Analyses : les courbes choisies pour ce rôle et ce métier */
-const vAnalyses = () => `<h1>Analyses</h1><p class="sous">Les courbes choisies pour votre activité. Touchez une barre ou un point pour lire la valeur.</p>${bento(cfg().analyses)}`;
+const vAnalyses = () => `<h1>Analyses</h1><p class="sous">Touchez une barre ou un point pour lire sa valeur.</p>${bento(cfg().analyses)}`;
 
 /* =================================================================
    ESPACE INSTALLATEUR : ce que nous réglons chez chaque client

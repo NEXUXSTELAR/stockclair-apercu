@@ -84,10 +84,16 @@ function fluxEquipe(n) {
 }
 const qteGeste = m => ["Contrôle", "Fiche"].includes(m.type) ? "" : Math.abs(m.qte).toLocaleString("fr-FR") + " × ";
 
-/* L'onglet « Équipe » de l'accueil : les derniers gestes, puis les fiches. */
+/* L'onglet « Équipe » de l'accueil : les quatre derniers gestes, puis une ligne par personne.
+   Les cartes (petit graphique, dernier geste) restent sur l'écran « Équipe ». */
+function ligneEquipe(u) {
+  const n = gestesDe(u, 7).length, e = etatAcces(u);
+  return `<li><button class="l eq-ligne ${u.actif ? "" : "inactif"}" data-personne="${u.id}">${avatar(u)}<span><b>${esc(u.nom)}${u.id === session.uid ? ` <span class="statut">vous</span>` : ""}</b><small>${esc(u.poste || PROFILS[u.role].nom)}${e ? " · " + e : ""}</small></span><span class="eq-n">${n ? `<b>${n}</b> ${n > 1 ? "gestes" : "geste"}` : "Aucun geste"}<small>en 7 jours</small></span></button></li>`;
+}
 function ongletEquipe() {
-  return `<div class="bento"><section class="w w-l"><h3 class="w-titre">Derniers gestes de l'équipe</h3>${fluxEquipe(6)}</section></div>
-  <h2>Les fiches</h2>${cartesEquipe()}
+  const l = [moi()].filter(u => u.id).concat(fichesVisibles());
+  return `<div class="bento"><section class="w w-l"><h3 class="w-titre">Derniers gestes de l'équipe</h3>${fluxEquipe(4)}</section></div>
+  <h2>Les fiches</h2><ul class="b-liste eq-lignes">${l.map(ligneEquipe).join("")}</ul>
   ${permis("equipe") ? `<p style="margin-top:14px"><button class="btn" data-racine="equipe">${I.equipe}Ouvrir l'écran Équipe</button></p>` : ""}`;
 }
 
@@ -98,7 +104,7 @@ function vEquipe() {
   if (!admin) ongletEq = "fiches";
   const attente = S.equipe.filter(u => u.actif && !u.empreinte).length;
   return `<h1>Équipe</h1>
-  <p class="sous">${session.profil === "direction" ? "La fiche de chacun, avec ses gestes de stock : qui a fait quoi, et quand." : fichesVisibles().length ? "Les fiches des personnes que vous encadrez, avec leurs gestes de stock." : "Votre fiche, avec vos gestes de stock."}</p>
+  <p class="sous">${session.profil === "direction" ? "La fiche de chacun : qui a fait quoi, et quand." : fichesVisibles().length ? "Les fiches des personnes que vous encadrez." : "Votre fiche, avec vos gestes de stock."}</p>
   ${admin ? `<div class="segments" role="group" aria-label="Partie de l'écran"><button data-onglet-eq="fiches" aria-pressed="${ongletEq === "fiches"}">Les fiches</button><button data-onglet-eq="acces" aria-pressed="${ongletEq === "acces"}">Accès et sécurité${attente ? ` <span class="nb-attente">${attente}</span>` : ""}</button></div>` : ""}
   ${ongletEq === "acces" && admin ? dAcces() : `${cartesEquipe()}
     ${admin ? `<p style="margin-top:14px"><button class="btn plein" data-act="ajouterPersonne">${I.equipe}Ajouter une personne</button></p>` : ""}
@@ -106,7 +112,9 @@ function vEquipe() {
 }
 
 /* ---------------- Fiche d'une personne ---------------- */
-let periodeFiche = 30, nFiche = 30;
+// À l'ouverture d'une fiche : les cinq derniers gestes. « Afficher la suite » en montre trente, puis trente de plus à chaque fois.
+let periodeFiche = 30, nFiche = 30, ficheSuite = false;
+const GESTES_VUS = 5;
 function grapheGestes(l, jours, moiMeme) {
   // 7 ou 30 jours : une colonne par jour. 90 jours : une colonne par semaine.
   const parSem = jours > 30, cases = parJour(l, parSem ? 91 : jours);
@@ -142,6 +150,8 @@ function vPersonne(uid) {
   const cx = voitConnexions(u) ? S.connexions.find(c => c.uid === u.id && c.ok) : null;
   const top = Object.entries(r.objets).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => ({ a: art(id), n })).filter(x => x.a);
   const e = etatAcces(u);
+  if (entree) ficheSuite = false;
+  const vus = ficheSuite ? nFiche : GESTES_VUS, reste = l.length - vus;
   return `<div class="eq-tete">
     ${moiMeme ? `<button class="eq-photo" data-photo aria-label="Changer ma photo">${avatar(u, "tres")}<span class="eq-photo-pic">${I.appareil}</span></button>` : avatar(u, "tres")}
     <div><h1>${esc(u.nom)}</h1><p class="sous">${esc(u.poste || PROFILS[u.role].nom)} · ${esc(ROLES[u.role].split(" : ")[0])}</p>
@@ -157,11 +167,11 @@ function vPersonne(uid) {
     <div class="c-compter"><b data-compte="${r.compter}">${r.compter}</b><span>${r.compter > 1 ? "comptages et autres gestes" : "comptage ou autre geste"}</span></div>
     <div class="c-alerte"><b data-compte="${r.perte}">${r.perte}</b><span>${r.perte > 1 ? "pertes signalées" : "perte signalée"}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</span></div>
   </div>
+  <div class="eq-actions eq-sorties"><button class="btn petit" data-aller="compteRendu" data-arg="${u.id}">${I.imprimer}Compte rendu à imprimer</button><button class="btn petit" data-export-fiche="${u.id}">${I.excel}Exporter en Excel</button></div>
   ${grapheGestes(l, periodeFiche, moiMeme)}
   ${top.length ? `<h2>${moiMeme ? "Ce qui passe le plus entre vos mains" : "Ce qui passe le plus entre ses mains"}</h2><ul class="b-liste">${top.map(x => `<li><button class="l" ${S.articles.includes(x.a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${x.a.id}"` : "disabled"}>${img(x.a)}<span><b>${esc(x.a.nom)}</b><small>${pl(x.n, "geste", "gestes")}</small></span><span class="n">${x.n}</span></button></li>`).join("")}</ul>` : ""}
   <h2>Derniers gestes</h2>
-  ${l.length ? `${lignesGestes(l.slice(0, nFiche))}${l.length > nFiche ? `<p style="margin-top:12px"><button class="btn" data-plus-fiche>Afficher ${pl(Math.min(30, l.length - nFiche), "geste", "gestes")} de plus</button></p>` : ""}` : `<p class="vide">Aucun geste enregistré sur cette période.</p>`}
-  <div class="eq-actions" style="margin-top:18px"><button class="btn petit" data-aller="compteRendu" data-arg="${u.id}">${I.imprimer}Compte rendu à imprimer</button><button class="btn petit" data-export-fiche="${u.id}">${I.excel}Exporter en Excel</button></div>
+  ${l.length ? `${lignesGestes(l.slice(0, vus))}${reste > 0 ? `<p style="margin-top:12px"><button class="btn" data-plus-fiche>${ficheSuite ? `Afficher ${pl(Math.min(30, reste), "geste", "gestes")} de plus` : `Afficher la suite (${pl(reste, "geste", "gestes")})`}</button></p>` : ""}` : `<p class="vide">Aucun geste enregistré sur cette période.</p>`}
   ${!moiMeme && admin ? `<div class="eq-actions eq-admin">${u.actif && u.empreinte ? `<button class="btn petit" data-inviter="${u.id}">${I.partager}Envoyer un nouveau lien d'accès</button>` : ""}${u.photo ? `<button class="btn petit" data-retirer-photo="${u.id}">Retirer la photo</button>` : ""}</div>` : ""}
   ${moiMeme ? `<div class="eq-note"><b>Qui voit cette fiche</b><p>${quiVoitMaFiche()}. Elle montre vos gestes de stock : quoi, combien, quand. L'appli ne relève ni votre position, ni votre temps de travail.</p></div>` : ""}`;
 }
@@ -434,7 +444,7 @@ function brancherEquipe() {
   $$("[data-onglet-eq]").forEach(b => b.onclick = () => { ongletEq = b.dataset.ongletEq; rendre(); const n = $(`[data-onglet-eq="${ongletEq}"]`); if (n) n.focus({ preventScroll: true }); });
   $$("[data-onglet-accueil]").forEach(b => b.onclick = () => { ongletAccueil = b.dataset.ongletAccueil; entree = true; toutVoir = false; rendre(); const n = $(`[data-onglet-accueil="${ongletAccueil}"]`); if (n) n.focus({ preventScroll: true }); });
   $$("[data-periode-fiche]").forEach(b => b.onclick = () => { periodeFiche = +b.dataset.periodeFiche; nFiche = 30; entree = true; rendre(); const n = $(`[data-periode-fiche="${periodeFiche}"]`); if (n) n.focus({ preventScroll: true }); });
-  $$("[data-plus-fiche]").forEach(b => b.onclick = () => { nFiche += 30; rendre(); });
+  $$("[data-plus-fiche]").forEach(b => b.onclick = () => { if (ficheSuite) nFiche += 30; else { ficheSuite = true; nFiche = 30; } rendre(); });
   $$("[data-photo]").forEach(b => b.onclick = () => feuillePhoto());
   $$("[data-retirer-photo]").forEach(b => b.onclick = () => { const u = S.equipe.find(x => x.id === b.dataset.retirerPhoto); if (!u || !confirm(`Retirer la photo de ${u.nom} ?`)) return; delete u.photo; sauver(); rendre(); toast("Photo retirée."); });
   $$("[data-inviter]").forEach(b => b.onclick = () => feuilleInviter(b.dataset.inviter));

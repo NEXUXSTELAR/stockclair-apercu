@@ -185,7 +185,7 @@ function feuilleDotation(lieu) {
 function vLieux() {
   if (!lieuxActifs()) return vDepot();
   const mien = monLieu();
-  return `<h1>${esc(motLieux())}</h1><p class="sous">Ce que contient chaque lieu, et ce qui manque à sa dotation. Le reste est au ${esc(nomDepot().toLowerCase())}.</p>
+  return `<h1>${esc(motLieux())}</h1>${sousAide("Le contenu de chaque lieu, et ce qui lui manque.", `Ce que contient chaque lieu, et ce qui manque à sa dotation. Le reste est au ${esc(nomDepot().toLowerCase())}.`)}
   <ul class="t-liste">${S.lieux.map(x => { const l = articlesDuLieu(x.id), m = manquesLieu(x.id).length, pieces = l.reduce((t, a) => t + Math.max(0, stockLieu(a.id, x.id)), 0);
     const np = perimesLieu(x.id).length;
     return `<li><button data-lieu="${x.id}">${pic(pictoLieu())}<span><b>${esc(x.nom)}</b><small>${pieces} pièce${pieces > 1 ? "s" : ""} · ${m ? `${m} objet${m > 1 ? "s" : ""} sous la dotation` : Object.keys(x.dot || {}).length ? "dotation complète" : "pas de dotation"}${np ? ` · ${np} date${np > 1 ? "s" : ""} limite${np > 1 ? "s" : ""} proche${np > 1 ? "s" : ""}` : ""}</small>${x.id === mien ? `<small class="zone-tour">Votre lieu habituel</small>` : ""}</span><span class="etat ${np ? "zero" : m ? "bas" : ""}"><i></i></span></button></li>`; }).join("")}</ul>`;

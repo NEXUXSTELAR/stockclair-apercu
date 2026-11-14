@@ -76,11 +76,13 @@ function zoneDeLaSemaine() {
   const dernier = Math.max(0, ...l.map(e => c[e.id] || 0));
   return { e: l.slice().sort((x, y) => (c[x.id] || 0) - (c[y.id] || 0))[0], due: Date.now() - dernier >= 7 * 86400000 };
 }
+// Une zone comptée aujourd'hui porte une coche à la place du pictogramme : on voit d'un coup d'œil ce qui est fait.
+const COCHE = `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 25l10 10 20-22"/></svg>`;
 function tZones() {
   const z = zoneDeLaSemaine(), nz = S.emplacements.filter(e => S.articles.some(a => a.emp === e.id)).length;
-  return `<h1>Compter une zone</h1><p class="sous">Choisissez l'allée ou le lieu. Les quantités attendues s'affichent : vous ne corrigez que ce qui ne correspond pas.${nz > 1 ? ` Une zone par semaine, et tout est recompté en ${nz} semaines.` : ""}</p>
-  <ul class="t-liste">${S.emplacements.map(e => { const n = S.articles.filter(a => a.emp === e.id).length, tour = z && z.due && z.e.id === e.id; return `<li><button data-zone="${e.id}">${pic(I.compter)}<span><b>${esc(e.nom)}</b><small>${n} objet${n > 1 ? "s" : ""}${n ? " · " + texteDepuis(depuisComptage(e.id)) : ""}</small>${tour ? `<small class="zone-tour">À compter cette semaine</small>` : ""}</span><span class="n">${n}</span></button></li>`; }).join("")}</ul>
-  ${lieuxActifs() ? `<h2>${esc(motLieux())}</h2><ul class="t-liste">${S.lieux.map(x => { const n = articlesDuLieu(x.id).length; return `<li><button data-zone="${x.id}">${pic(I.camion)}<span><b>${esc(x.nom)}</b><small>${n} objet${n > 1 ? "s" : ""}${n ? " · " + texteDepuis(depuisComptage(x.id)) : ""}</small></span><span class="n">${n}</span></button></li>`; }).join("")}</ul>` : ""}`;
+  return `<h1>Compter une zone</h1><p class="sous">Choisissez la zone. Chaque écart est signé de votre prénom.</p>
+  <ul class="t-liste">${S.emplacements.map(e => { const n = S.articles.filter(a => a.emp === e.id).length, tour = z && z.due && z.e.id === e.id, faite = n && depuisComptage(e.id) === 0; return `<li class="${faite ? "zone-faite" : ""}"><button data-zone="${e.id}">${pic(faite ? COCHE : I.compter)}<span><b>${esc(e.nom)}</b><small>${n} objet${n > 1 ? "s" : ""}${n ? " · " + texteDepuis(depuisComptage(e.id)) : ""}</small>${tour ? `<small class="zone-tour">À compter cette semaine</small>` : ""}</span><span class="n">${n}</span></button></li>`; }).join("")}</ul>
+  ${lieuxActifs() ? `<h2>${esc(motLieux())}</h2><ul class="t-liste">${S.lieux.map(x => { const n = articlesDuLieu(x.id).length, faite = n && depuisComptage(x.id) === 0; return `<li class="${faite ? "zone-faite" : ""}"><button data-zone="${x.id}">${pic(faite ? COCHE : I.camion)}<span><b>${esc(x.nom)}</b><small>${n} objet${n > 1 ? "s" : ""}${n ? " · " + texteDepuis(depuisComptage(x.id)) : ""}</small></span><span class="n">${n}</span></button></li>`; }).join("")}</ul>` : ""}`;
 }
 // Une zone du dépôt, ou un autre lieu de stock (fourgon, véhicule, site) : les objets à compter et la quantité attendue
 const objetsAZone = id => lieuDe(id) ? articlesDuLieu(id) : S.articles.filter(a => a.emp === id);
@@ -88,7 +90,7 @@ const attenduZone = (a, id) => Math.max(0, lieuDe(id) ? stockLieu(a.id, id) : st
 function tZone(id) {
   const e = S.emplacements.find(x => x.id === id) || lieuDe(id); if (!e) return tZones();
   const l = objetsAZone(id);
-  return `<h1>${esc(e.nom)}</h1><p class="sous">Comptez et corrigez. Chaque écart est enregistré et signé de votre prénom.</p>
+  return `<h1>${esc(e.nom)}</h1><p class="sous">Corrigez seulement ce qui ne correspond pas.</p>
   <form data-form="zone" data-zone-id="${id}"><ul class="t-liste">${l.map(a => `<li><div class="t-retour">${img(a)}<span><b>${esc(a.nom)}</b><small>attendu : ${attenduZone(a, id)}</small></span>
     <input type="number" inputmode="numeric" min="0" name="${a.id}" value="${attenduZone(a, id)}" aria-label="Compté : ${esc(a.nom)}"></div></li>`).join("") || `<li class="vide">Rien à compter ici pour l'instant.</li>`}</ul>
   <div class="valider"><button type="button" class="btn" data-aller="zones">Annuler</button><button class="btn plein" style="background:var(--compter);border-color:var(--compter);color:#fff">Valider le comptage</button></div></form>`;
@@ -113,7 +115,9 @@ function validerZone(form, confirme) {
   });
   (S.comptages = S.comptages || {})[form.dataset.zoneId] = Date.now(); sauver();
   toast(ecarts ? `${ecarts} écart${ecarts > 1 ? "s" : ""} enregistré${ecarts > 1 ? "s" : ""}.` : "Tout est juste.");
-  aller("terrain");
+  // On revient sur la liste des zones, où celle-ci est cochée « comptée aujourd'hui ». « Retour » ne rouvre pas le comptage qu'on vient de valider.
+  if (pile.length && pile[pile.length - 1].nom === "zones") pile.pop();
+  entree = true; vue = { nom: "zones", arg: null }; rendre(); window.scrollTo(0, 0);
 }
 
 /* ---------------- Ce que rapporte un objet loué ----------------

@@ -16,8 +16,9 @@ const CATALOGUE = {
   "MO-KIT":  { nom: "Kits", detail: "Sortir un ensemble complet en un geste", eur: 290, xof: 140000 },
   "MO-CMD":  { nom: "Commandes fournisseurs", detail: "Brouillons automatiques, validation, bon de commande", eur: 290, xof: 140000 },
   "MO-DASH": { nom: "Tableau de direction", detail: "Valeur du stock, pertes, rapport du mois", eur: 290, xof: 140000 },
-  "AL-SMS":  { nom: "Alertes SMS", detail: "Branchées sur le compte SMS du client, qui paie ses messages à son fournisseur", eur: 190, xof: 90000 },
-  "AL-WA":   { nom: "Alertes WhatsApp", detail: "Branchées sur le compte WhatsApp du client, qui paie ses messages à son fournisseur", eur: 190, xof: 90000 },
+  // detailClient : la même phrase, dite au client lui-même dans son écran « Installation » (detail sert aux écrans de l'installateur et au devis).
+  "AL-SMS":  { nom: "Alertes SMS", detail: "Branchées sur le compte SMS du client, qui paie ses messages à son fournisseur", detailClient: "Branchées sur votre compte SMS : vous payez vos messages à votre fournisseur", eur: 190, xof: 90000 },
+  "AL-WA":   { nom: "Alertes WhatsApp", detail: "Branchées sur le compte WhatsApp du client, qui paie ses messages à son fournisseur", detailClient: "Branchées sur votre compte WhatsApp : vous payez vos messages à votre fournisseur", eur: 190, xof: 90000 },
 };
 const OFFRE = { nom: "Complet", eur: 1990, xof: 950000, jours: 60, heures: 4 };
 // Les trois offres (docs/23). « inclus » : modules compris dans le prix ; les autres s'ajoutent au prix du catalogue.

@@ -64,7 +64,7 @@ function feuilleEvenement(ev) {
 /* ---------------- Clients ---------------- */
 function bClients() {
   const l = (S.clientsLoc || []).slice().sort((a, b) => a.nom.localeCompare(b.nom));
-  return `<h1>${motClients()}</h1><p class="sous">${complet() ? `Coordonnées, caution, ${motImps()} et casse de chacun. Tout s'imprime sur les bons et les factures.` : "Nom, téléphone et caution. La caution s'affiche sur la facture de casse."}</p>
+  return `<h1>${motClients()}</h1>${complet() ? sousAide(`Coordonnées, caution, ${motImps()} et casse de chacun.`, "Tout s'imprime sur les bons et les factures.") : sousAide("Nom, téléphone et caution de chacun.", "La caution s'affiche sur la facture de casse.")}
   <div class="clients">${l.map(c => {
     const evs = evenementsDe(c), casse = evs.reduce((t, ev) => t + casseDe(ev), 0);
     return `<button class="client" data-client="${c.id}"><span class="avatar">${esc(initiales(c.nom))}</span><span><b>${esc(c.nom)}</b><small>${[c.tel, evs.length + " " + (evs.length > 1 ? motImps() : motImp())].filter(Boolean).map(esc).join(" · ")}</small></span>

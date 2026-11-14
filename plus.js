@@ -33,7 +33,7 @@ function bReservations() {
   const d2 = (rechercheDispo && rechercheDispo.d2) || d1;
   const avenir = S.reservations.filter(r => r.fin >= aujourdHui() && r.statut !== "Revenue").sort((a, b) => a.debut.localeCompare(b.debut));
   return `<h1>Réservations</h1>
-  <p class="sous">« ${esc(V("question") || "Avez-vous 300 chaises le 14 ?")} » Choisissez les dates : la réponse tient compte de ce qui est déjà réservé et de ce qui revient d'ici là.</p>
+  ${sousAide(`« ${esc(V("question") || "Avez-vous 300 chaises le 14 ?")} » Choisissez les dates.`, "La réponse tient compte de ce qui est déjà réservé et de ce qui revient d'ici là.")}
   <form class="dispo-dates" data-form="dispo">
     <label class="champ">Du<input type="date" name="d1" value="${d1}" min="${aujourdHui()}"></label>
     <label class="champ">Au<input type="date" name="d2" value="${d2}" min="${aujourdHui()}"></label>
@@ -99,20 +99,27 @@ function feuilleReservation(d1, d2) {
 /* ---------------- Terrain : liste de préparation ---------------- */
 function tPreparer() {
   const l = S.reservations.filter(r => ["Confirmée", "Préparée"].includes(r.statut) && r.debut <= isoJour(Date.now() + 10 * JOUR_MS)).sort((a, b) => a.debut.localeCompare(b.debut));
-  return `<h1>Préparer un départ</h1><p class="sous">Choisissez ${esc(V("leDepart") || "l'événement")}. Scannez chaque ${esc(V("chaque") || "caisse")} en ${V("chaque") === "fût" ? "le" : "la"} chargeant : l'appli dit ce qui manque avant que le camion parte.</p>
+  return `<h1>Préparer un départ</h1><p class="sous">Choisissez ${esc(V("leDepart") || "le départ")}.</p>
   <ul class="t-liste">${l.map(r => { const tot = r.lignes.reduce((t, x) => t + x[1], 0), ch = r.lignes.reduce((t, x) => t + Math.min(x[1], r.charge[x[0]] || 0), 0);
     return `<li><button data-prep="${r.id}">${pic(I.camion)}<span><b>${esc(r.nom)}</b><small>${dateCourte(r.debut)} · ${ch} / ${tot} pièces chargées</small></span><span class="n">${Math.round(ch / tot * 100)} %</span></button></li>`; }).join("") || `<li class="vide">Aucun départ prévu dans les 10 jours.</li>`}</ul>`;
 }
 function tPreparation(id) {
   const r = S.reservations.find(x => x.id === id); if (!r) return tPreparer();
-  const reste = r.lignes.filter(([aid, q]) => (r.charge[aid] || 0) < q);
+  const reste = r.lignes.filter(([aid, q]) => (r.charge[aid] || 0) < q), faites = r.lignes.filter(([aid, q]) => (r.charge[aid] || 0) >= q);
+  const tot = r.lignes.reduce((t, x) => t + x[1], 0), ch = r.lignes.reduce((t, x) => t + Math.min(x[1], r.charge[x[0]] || 0), 0);
+  // Une ligne pas commencée n'a ni liseré ni bouton « − » : rien à retirer, rien à signaler.
+  const ligne = ([aid, q]) => { const a = art(aid), c = r.charge[aid] || 0, lot = a.lot || 1, ok = c >= q;
+    return `<li><div class="prep-ligne ${ok ? "ok" : c ? "" : "vide"}">${img(a)}<span><b>${esc(a.nom)}</b><small>${c} / ${q}${lot > 1 ? ` · 1 scan = ${lot}` : ""}</small><i class="barre"><i style="width:${Math.min(100, c / q * 100)}%"></i></i></span>
+      <span class="prep-boutons">${c ? `<button class="btn petit" data-charge="${aid}|${-lot}" aria-label="Retirer ${lot}">−</button>` : ""}${ok ? "" : `<button class="btn petit plein" data-charge="${aid}|${lot}" aria-label="Ajouter ${lot}">+${lot}</button>`}</span></div></li>`; };
+  // Le bilan est un compte, pas une alerte : ce qui manque n'est nommé que lorsqu'il reste peu de lignes, et « Le camion part » le redemande.
+  const bilan = !reste.length ? "Tout est chargé."
+    : `<b>${ch} / ${tot}</b> chargés<i class="barre"><i style="width:${tot ? Math.round(ch / tot * 100) : 0}%"></i></i>${ch && reste.length <= 2 ? `<small>Reste : ${reste.map(([aid, q]) => `${q - (r.charge[aid] || 0)} ${esc(art(aid).nom.toLowerCase())}`).join(", ")}</small>` : ""}`;
   return `<h1>${esc(r.nom)}</h1><p class="sous">Départ ${dateLongue(r.debut)}</p>
-  <button class="t-scan petit" data-act="scanRafale">${I.scan}<b>Scanner en chargeant</b><span>La caméra reste ouverte : un bip par caisse</span></button>
-  <ul class="t-liste prep">${r.lignes.map(([aid, q]) => { const a = art(aid), c = r.charge[aid] || 0, lot = a.lot || 1, ok = c >= q;
-    return `<li><div class="prep-ligne ${ok ? "ok" : ""}">${img(a)}<span><b>${esc(a.nom)}</b><small>${c} / ${q}${lot > 1 ? ` · 1 scan = ${lot}` : ""}</small><i class="barre"><i style="width:${Math.min(100, c / q * 100)}%"></i></i></span>
-      <span class="prep-boutons"><button class="btn petit" data-charge="${aid}|${-lot}" aria-label="Retirer ${lot}">−</button><button class="btn petit plein" data-charge="${aid}|${lot}" aria-label="Ajouter ${lot}">+${lot}</button></span></div></li>`; }).join("")}</ul>
-  <div class="prep-bilan ${reste.length ? "manque" : "complet"}" role="status">${reste.length ? `Il manque encore : ${reste.map(([aid, q]) => `${q - (r.charge[aid] || 0)} ${esc(art(aid).nom.toLowerCase())}`).join(", ")}` : "Tout est chargé."}</div>
-  <div class="t-actions"><button class="t-action sortie" data-act="camionPart">${I.sortie}<span>Le camion part<small>Crée le bon de sortie</small></span></button></div>`;
+  <button class="t-scan petit" data-act="scanRafale">${I.scan}<b>Scanner en chargeant</b><span>Un bip par ${esc(V("chaque") || "caisse")}</span></button>
+  <div class="prep-bilan ${reste.length ? "encours" : "complet"}" role="status">${bilan}</div>
+  ${reste.length ? `<ul class="t-liste prep">${reste.map(ligne).join("")}</ul>` : ""}
+  ${faites.length ? `<details class="prep-faites"><summary>${faites.length} ligne${faites.length > 1 ? "s" : ""} complète${faites.length > 1 ? "s" : ""}</summary><ul class="t-liste prep">${faites.map(ligne).join("")}</ul></details>` : ""}
+  <div class="t-actions prep-depart"><button class="t-action sortie" data-act="camionPart">${I.sortie}<span>Le camion part<small>Crée le bon de sortie</small></span></button></div>`;
 }
 function charger1(r, aid, delta) {
   const q = (r.lignes.find(l => l[0] === aid) || [0, 0])[1];
@@ -133,7 +140,9 @@ function camionPart() {
   const lignes = r.lignes.map(([aid]) => [aid, Math.min(r.charge[aid] || 0, Math.max(0, stock(aid)))]).filter(l => l[1] > 0);
   const manque = r.lignes.filter(([aid, q]) => (r.charge[aid] || 0) < q);
   if (!lignes.length) return toast("Rien n'est chargé.");
-  if (manque.length && !confirm("Il manque encore des objets. Le camion part quand même ?")) return;
+  // C'est ici, au moment de partir, que l'appli nomme ce qui manque.
+  const detail = manque.slice(0, 4).map(([aid, q]) => `${q - (r.charge[aid] || 0)} ${art(aid).nom.toLowerCase()}`).join(", ") + (manque.length > 4 ? ` et ${manque.length - 4} autre${manque.length > 5 ? "s" : ""}` : "");
+  if (manque.length && !confirm(`Il manque encore : ${detail}. Le camion part quand même ?`)) return;
   lignes.forEach(([aid, q]) => mouvement(aid, "Prêt", q, { evenement: r.nom }));
   r.statut = "Partie";
   aller("bon", creerBon({ type: "sortie", evenement: r.nom, date: Date.now(), lignes }));

@@ -562,7 +562,7 @@ const dateFr = iso => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { 
 /* ---------------- Terrain : réceptionner une livraison ---------------- */
 function tReception() {
   const attendues = S.commandes.filter(c => ["Envoyée", "Reçue en partie"].includes(c.statut));
-  return `<h1>Réceptionner une livraison</h1><p class="sous">Le livreur est là : choisissez la commande, comptez ce qui arrive, photographiez le bon de livraison.</p>
+  return `<h1>Réceptionner une livraison</h1><p class="sous">Choisissez la commande.</p>
   <ul class="t-liste">${attendues.map(c => `<li><button data-recep="${c.id}">${pic(I.camion)}<span><b>${esc(c.fournisseur)}</b><small>${c.id} · commandé le ${quand(c.date)} · ${c.lignes.length} ligne${c.lignes.length > 1 ? "s" : ""}${c.statut === "Reçue en partie" ? " · reliquat" : ""}</small></span><span class="n">${c.lignes.reduce((t, l) => t + (l.qte - (l.recu || 0)), 0)}</span></button></li>`).join("") || `<li class="vide">Aucune livraison attendue.</li>`}</ul>
   <p style="margin-top:14px"><button class="btn" data-recep="libre">Livraison sans commande</button></p>`;
 }

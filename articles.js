@@ -36,12 +36,13 @@ function ligneFiche(id, motif) {
 }
 
 /* ---------------- Ce qui s'ajoute aux écrans existants ---------------- */
-// En haut du stock : le bouton, et les ajouts demandés par le dépôt
+// Sur la ligne de la recherche du stock : un geste rare, donc un bouton à contour. L'accent reste au filtre choisi.
+const boutonNouvelArticle = () => peutArticles() ? `<button class="btn petit art-nouveau" data-article-nouveau>Nouvel article</button>` : "";
+// En haut du stock : les ajouts demandés par le dépôt
 function outilsArticles() {
   if (!peutArticles()) return "";
   const d = S.demandesArticles || [];
-  return `<div class="art-outils"><button class="btn petit plein" data-article-nouveau>Nouvel article</button></div>
-  ${d.length ? `<ul class="b-liste art-demandes">${d.map(x => `<li><button class="l" data-demande-article="${x.id}">${pic(I.etiquette)}<span><b>Ajout demandé · ${esc(x.nom)}</b><small>Par ${esc(x.qui)} · ${quand(x.date)}</small></span><span class="statut">à voir</span></button></li>`).join("")}</ul>` : ""}`;
+  return `${d.length ? `<ul class="b-liste art-demandes">${d.map(x => `<li><button class="l" data-demande-article="${x.id}">${pic(I.etiquette)}<span><b>Ajout demandé · ${esc(x.nom)}</b><small>Par ${esc(x.qui)} · ${quand(x.date)}</small></span><span class="statut">à voir</span></button></li>`).join("")}</ul>` : ""}`;
 }
 // Sous une recherche qui ne trouve rien
 const boutonCreerRecherche = () => `<button type="button" class="btn petit plein" data-article-recherche style="margin-top:10px">${peutArticles() ? "Créer cet article" : "Demander l'ajout"}</button>`;

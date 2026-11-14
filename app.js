@@ -45,6 +45,12 @@ const I = {
   appareil: P('<path d="M6 15h8l3-5h14l3 5h8v25H6z"/><circle cx="24" cy="27" r="7"/>'),
   telecharger: P('<path d="M24 6v24M14 21l10 10 10-10"/><path d="M8 36v4a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2v-4"/>'),
   telephone: P('<rect x="13" y="4" width="22" height="40" rx="4"/><path d="M21 37h6"/>'),
+  // Un dessin par destination : la tournée (un trajet entre deux points), la réception (un colis), ma journée (une liste cochée), les clients (un carnet).
+  itineraire: P('<circle cx="11" cy="37" r="5"/><circle cx="37" cy="11" r="5"/><path d="M16 37h14a6.5 6.5 0 0 0 0-13H18a6.5 6.5 0 0 1 0-13h14"/>'),
+  colis: P('<path d="M6 15 24 6l18 9v18L24 42 6 33z"/><path d="M6 15l18 9 18-9M24 24v18M15 10.5l18 9"/>'),
+  liste: P('<path d="m7 12 4 4 7-8M7 28l4 4 7-8M25 13h16M25 29h16M25 40h10"/>'),
+  carnet: P('<rect x="11" y="6" width="30" height="36" rx="3"/><path d="M6 15h9M6 24h9M6 33h9"/><circle cx="27" cy="19" r="4.5"/><path d="M19 33a8 8 0 0 1 16 0"/>'),
+  cle: P('<path d="M41 13a10 10 0 0 1-13.6 9.3L12 37.7a4 4 0 0 1-5.7-5.7l15.4-15.4A10 10 0 0 1 35 7l-6 6 1.5 4.5L35 19z"/>'),
 };
 
 /* ---------------- Thème : clair par défaut, réglé par appareil ---------------- */
@@ -241,7 +247,7 @@ function vConnexion() {
   const e = S.entreprise || {}, memo = identMemorise(), ident = identSaisi !== null ? identSaisi : memo;
   return `${DEMO}<div class="connexion">
     <div class="barre"><div class="marque">${e.logo ? `<img src="${e.logo}" alt="" class="logo-client">` : I.logo}<span>${esc(e.nom || "Stock démo")}</span></div>${boutonReglages}</div>
-    <div class="c-tete"><h1>Bonjour</h1><p class="sous">Entrez l'identifiant et le mot de passe que votre responsable vous a donnés.</p></div>
+    <div class="c-tete"><h1>Bonjour</h1><p class="sous">Entrez l'identifiant et le mot de passe donnés par votre responsable.</p></div>
     <form class="c-form verre" data-form="connexion">
       <label class="champ">Identifiant<input name="ident" value="${esc(ident)}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required${msgConnexion ? ' aria-invalid="true"' : ""}></label>
       <label class="champ">Mot de passe${champMdp("current-password")}</label>
@@ -249,16 +255,18 @@ function vConnexion() {
       <p class="message" role="alert">${esc(msgConnexion)}</p>
       <button class="btn plein">Se connecter</button>
     </form>
+    <button class="btn visite c-visite" data-act="tour">${I.fleche}Visite guidée en 2 minutes</button>
     ${dejaInstallee() ? "" : `<button class="c-installer" data-act="ecranAccueil"><span class="pastille">${I.telecharger}</span><span><b>Installer l'appli</b><small>Une icône sur l'écran d'accueil, en plein écran, même sans réseau</small></span>${I.fleche}</button>`}
-    ${blocEtabConnexion()}<details class="c-demo" open><summary><span><b>Comptes de démonstration</b><small>Entrer d'un geste, sans rien taper</small></span></summary>
-      <p class="sous">Touchez un compte pour entrer. Chacun voit un écran différent, réglé pour son travail. Dans l'appli livrée, cette liste n'existe pas : chacun reçoit son identifiant.</p>
-      <div class="c-comptes">${EQUIPE_DEMO.filter(d => S.equipe.some(x => x.id === d.id && (S.etab || x.identifiant === d.identifiant) && x.empreinte === empreinte(x.id, d.mdp))).map(d => { const u = S.equipe.find(x => x.id === d.id) || d; return `<button type="button" data-remplir="${S.etab ? u.identifiant : d.identifiant}|${d.mdp}">${avatar(u)}<span><b>${esc(u.poste)}</b><small>${esc(u.nom)} · <span class="code">${S.etab ? u.identifiant : d.identifiant}</span> · <span class="code">${d.mdp}</span></small></span>${I.fleche}</button>`; }).join("")}</div>
+    ${blocEtabConnexion()}<details class="c-demo" open><summary><span><b>Comptes de démonstration</b><small>Un toucher pour entrer. Chacun a son écran.</small></span></summary>
+      <div class="c-comptes">${EQUIPE_DEMO.filter(d => S.equipe.some(x => x.id === d.id && (S.etab || x.identifiant === d.identifiant) && x.empreinte === empreinte(x.id, d.mdp))).map(d => { const u = S.equipe.find(x => x.id === d.id) || d; return `<button type="button" data-remplir="${S.etab ? u.identifiant : d.identifiant}|${d.mdp}" title="Identifiant ${S.etab ? u.identifiant : d.identifiant}, mot de passe ${d.mdp}">${avatar(u)}<span><b>${esc(u.poste)}</b><small>${esc(u.nom)}</small></span>${I.fleche}</button>`; }).join("")}</div>
+      <p class="w-note">Dans l'appli livrée, cette liste n'existe pas.</p>
     </details>
-    <div class="c-pied">
-      <button class="btn plein visite" data-act="tour">${I.fleche}Visite guidée en 2 minutes</button>
-      <p>Démo réglée pour : <b>${esc(metier().nom)}</b> · <button class="lien" data-act="metiers">Voir un autre métier</button></p>
-      <p>${ESPACE ? `<button class="lien" data-act="installateur">Mon espace (installateur)</button> · ` : ""}<button class="lien" data-act="reinit">Remettre la démo à zéro</button></p>
-    </div>
+    <details class="c-demo c-options"><summary><span><b>Options de la démonstration</b><small>Démo réglée pour : ${esc(metier().nom)}</small></span></summary>
+      <div class="c-pied">
+        <p><button class="lien" data-act="metiers">Voir un autre métier</button></p>
+        <p>${ESPACE ? `<button class="lien" data-act="installateur">Mon espace (installateur)</button> · ` : ""}<button class="lien" data-act="reinit">Remettre la démo à zéro</button></p>
+      </div>
+    </details>
   </div>`;
 }
 function seConnecter(f) {
@@ -361,6 +369,8 @@ const ETROITS = new Set(["tournee", "depot", "objet", "kits", "recuperer", "reto
 const PARENT = { client: "clients", devisLoc: "reservations", fiche: "materiel", reservation: "reservations", etiquettes: "docs", inventairePapier: "docs", refacturer: "docs", rapport: "docs", controles: "docs", lieu: "lieux", ficheLieu: "lieux", retourEv: "recuperer", preparation: "preparer", receptionCmd: "reception", zone: "zones" };
 const TITRES = { client: "Client", devisLoc: "Devis de location", objet: "Objet", fiche: "Fiche de l'objet", bon: "Bon", facture: "Facture de casse", reservation: "Réservation", retourEv: "Retour", preparation: "Préparation", receptionCmd: "Réception", zone: "Comptage", etiquettes: "Étiquettes", inventairePapier: "Inventaire", refacturer: "À refacturer", rapport: "Rapport", controles: "Contrôles", lieu: "Contenu du lieu", ficheLieu: "Fiche du lieu", groupe: "Groupe", article: "Article", personne: "Fiche", compteRendu: "Compte rendu d'activité" };
 const sectionsPermises = () => Object.keys(SECTIONS).filter(k => k !== "accueil" && permis(k));
+// « Tournée » est l'écran du chauffeur : elle n'est proposée qu'à lui, ou au rôle qui l'a dans sa barre. L'écran reste ouvert à tous par son lien.
+const tourneePourMoi = () => !!session && (session.profil === "chauffeur" || cfg().barre.includes("tournee"));
 
 function coque() {
   // Une fiche de l'équipe s'ouvre aussi pour qui n'a pas l'écran « Équipe » : chacun voit la sienne (equipe.js vérifie qui voit qui).
@@ -374,8 +384,11 @@ function coque() {
   const bouton = k => k ? `<button data-racine="${k}" ${courant(k)}>${I[SECTIONS[k].i]}<span>${esc(titreCourt(k))}</span></button>` : `<span></span>`;
   const dansBarre = barre.includes(sec);
   // Menu de gauche : les gestes du dépôt tiennent en une entrée (plus les raccourcis du rôle), pour garder la gestion visible.
-  const groupes = Object.entries(GROUPES).map(([g, t]) => { const l = sectionsPermises().filter(k => SECTIONS[k].g === g && (g !== "depot" || k === "depot" || barre.includes(k))); return l.length ? `<h4>${t}</h4>${l.map(k => `<button data-racine="${k}" ${courant(k)}>${I[SECTIONS[k].i]}<span>${esc(titreSection(k))}</span></button>`).join("")}` : ""; }).join("");
+  // Un intertitre qui coiffe une seule entrée du même nom (« Au dépôt ») ne s'écrit pas.
+  const groupes = Object.entries(GROUPES).map(([g, t]) => { const l = sectionsPermises().filter(k => SECTIONS[k].g === g && (g !== "depot" || k === "depot" || barre.includes(k)) && (k !== "tournee" || tourneePourMoi())); return l.length ? `${l.length === 1 && titreSection(l[0]) === t ? "" : `<h4>${t}</h4>`}${l.map(k => `<button data-racine="${k}" ${courant(k)}>${I[SECTIONS[k].i]}<span>${esc(titreSection(k))}</span></button>`).join("")}` : ""; }).join("");
   const titre = nom === "accueil" ? esc(e.nom || "Stock démo") : esc(TITRES[nom] || titreSection(nom) || "");
+  // Quand l'en-tête porte déjà le mot du grand titre, le titre n'est écrit qu'une fois (styles.css : .titre-double).
+  const h1 = nom !== "accueil" && corps.match(/^\s*<h1>([^<]*)<\/h1>/), titreDouble = !!h1 && h1[1] === titre;
   return `<div class="app">${DEMO}
     <aside class="cote" aria-label="Menu">
       <div class="marque">${e.logo ? `<img src="${e.logo}" alt="" class="logo-client">` : I.logo}<span>${esc(e.nom || "Stock démo")}</span></div>
@@ -390,19 +403,27 @@ function coque() {
       <form class="haut-cherche" data-form="rapide" role="search"><label class="recherche">${I.loupe}<span class="cache">Chercher un objet ou taper le code d'une étiquette</span><input type="search" name="q" placeholder="Chercher un objet, ou taper un code" autocomplete="off" autocapitalize="none" spellcheck="false"></label></form>${nonEnregistre ? `<span class="hors-ligne non-enregistre" role="status" title="Ce téléphone refuse d'enregistrer : mémoire pleine ou navigation privée. Ce que vous faites sera perdu à la fermeture.">Non enregistré</span>` : navigator.onLine === false ? `<span class="hors-ligne" role="status" title="L'appli continue sans réseau. Vos gestes sont gardés sur ce téléphone.">Hors ligne</span>` : ""}
       <div class="outils"><button class="rond" data-act="verrouiller" aria-label="Verrouiller l'écran">${I.cadenas}</button><button class="avatar-btn" data-act="plus" aria-label="Mon compte et tous les écrans">${avatar(u)}</button></div>
     </header>
-    <main class="${ETROITS.has(nom) ? "t-main" : "b-main"}">${bandeauEtab()}${corps}</main>
+    <main class="${ETROITS.has(nom) ? "t-main" : "b-main"}${titreDouble ? " titre-double" : ""}">${bandeauEtab()}${corps}</main>
     <nav class="barre-bas verre" aria-label="Navigation">${bouton(barre[0])}${bouton(barre[1])}
       <button class="bb-scan" data-act="camera" aria-label="Scanner une étiquette">${I.scan}</button>
-      ${bouton(barre[2])}<button data-act="plus" ${dansBarre || sec === "accueil" || sec === "groupe" ? "" : 'aria-current="page"'}>${I.grille}<span>Plus</span></button></nav>
+      ${bouton(barre[2])}<button data-act="plus" ${dansBarre || sec === "accueil" || sec === "groupe" || !SECTIONS[sec] ? "" : 'aria-current="page"'}>${I.grille}<span>Plus</span></button></nav>
   </div>`;
 }
 
 /* « Plus » : tout ce que la personne a le droit d'ouvrir, en tuiles. Pas de menu qui défile de côté. */
 function feuillePlus() {
   const u = moi(), sec = PARENT[ALIAS[vue.nom] || vue.nom] || ALIAS[vue.nom] || vue.nom;
+  // Gérant et responsable : leurs écrans d'abord, et une seule tuile « Au dépôt ». Un geste du dépôt que l'écran « Au dépôt »
+  // propose déjà n'a pas sa tuile ici (même règle que le menu de gauche). Le magasinier et le chauffeur gardent leurs tuiles.
+  const gestion = !["terrain", "chauffeur"].includes(session.profil), ici = vue;
+  // L'écran « Au dépôt » est lu tel qu'il s'affichera une fois ouvert (ses tuiles dépendent de l'écran en cours).
+  let ecranDepot = ""; if (gestion) { vue = { nom: "depot", arg: null }; try { ecranDepot = vDepot(); } finally { vue = ici; } }
+  const garde = k => (k !== "tournee" || tourneePourMoi()) && (!gestion || SECTIONS[k].g !== "depot" || k === "depot" || !new RegExp(`data-(aller|racine)="${k}"`).test(ecranDepot));
+  const permises = sectionsPermises().filter(garde), du = g => permises.filter(k => SECTIONS[k].g === g);
+  const grille = l => `<div class="plus-grille">${l.map(k => `<button data-k="${k}" ${k === sec ? 'aria-current="page"' : ""}><span class="pastille">${I[SECTIONS[k].i]}</span>${esc(titreSection(k))}</button>`).join("")}</div>`;
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="Tous les écrans">
     <button class="plus-moi" data-a="monProfil">${avatar(u, true)}<span><b>${esc(u.nom)}</b><small>${esc(u.poste || "")}${session.admin ? " · administre le compte" : ""}</small><small class="plus-fiche">Ma fiche et ma photo</small></span>${I.fleche}</button>
-    ${Object.entries(GROUPES).map(([g, t]) => { const l = sectionsPermises().filter(k => SECTIONS[k].g === g); return l.length ? `<h2>${t}</h2><div class="plus-grille">${l.map(k => `<button data-k="${k}" ${k === sec ? 'aria-current="page"' : ""}><span class="pastille">${I[SECTIONS[k].i]}</span>${esc(titreSection(k))}</button>`).join("")}</div>` : ""; }).join("")}
+    ${gestion ? `${grille(du("gestion").concat(du("depot"), du("compte")))}` : Object.entries(GROUPES).map(([g, t]) => du(g).length ? `<h2>${t}</h2>${grille(du(g))}` : "").join("")}
     <div class="valider trois"><button class="btn" data-a="reglages">${I.reglages}Thème</button><button class="btn" data-a="verrouiller">${I.cadenas}Verrouiller</button><button class="btn" data-a="sortir">${I.sortir}Sortir</button></div>
     ${installateur ? `<div class="valider" style="grid-template-columns:1fr"><button class="btn plein" data-a="revenirConfig">Revenir au réglage de l'installation</button></div>` : ""}
   </div>`);
@@ -422,35 +443,52 @@ function vAccueil() {
   else if (fichesVisibles().length) onglets.push(["jour", "Aujourd'hui"]);
   if (fichesVisibles().length) onglets.push(["equipe", "Équipe"]);
   if (!onglets.some(([k]) => k === ongletAccueil)) ongletAccueil = "jour";
-  const blocs = !deux ? liste : ongletAccueil === "chiffres" ? chiffres : jour;
-  const corps = ongletAccueil === "equipe" ? ongletEquipe() : bento(blocs, window.innerWidth < 720 && !toutVoir ? 6 : 0);
+  // « Chiffres » ne recopie pas l'écran Analyses : les chiffres de la période et ce qu'Analyses ne montre pas (le dépôt en 3D), puis un bouton vers toutes les courbes.
+  // Le résumé de la semaine s'y range aussi : il ne demande pas un regard chaque jour.
+  const versAnalyses = deux && permis("analyses"), courbes = new Set(versAnalyses ? cfg().analyses.map(([k]) => k) : []);
+  const garde = new Set(chiffres.filter(([k]) => k === "trio" || !courbes.has(k)).map(([k]) => k));
+  chiffres.forEach(([k]) => { if (garde.size < 2) garde.add(k); });
+  const resume = deux ? jour.filter(([k]) => k === "resume") : [];
+  const blocs = !deux ? liste : ongletAccueil === "chiffres" ? chiffres.filter(([k]) => garde.has(k)).sort((a, b) => (b[0] === "trio") - (a[0] === "trio")).concat(resume) : jour.filter(([k]) => k !== "resume");
+  const corps = ongletAccueil === "equipe" ? ongletEquipe() : bento(blocs, window.innerWidth < 720 && !toutVoir ? 6 : 0)
+    + (versAnalyses && ongletAccueil === "chiffres" ? `<p class="toutes-courbes"><button class="btn" data-racine="analyses">${I.releve}Toutes les courbes</button></p>` : "");
   return `<div class="salut"><p class="date">${dateLongue(aujourdHui())}</p><h1>${h >= 18 || h < 5 ? "Bonsoir" : "Bonjour"} ${esc(u.nom)}</h1></div>
   ${onglets.length ? `<div class="segments onglets-accueil" role="group" aria-label="Partie de l'accueil">${onglets.map(([k, t]) => `<button data-onglet-accueil="${k}" aria-pressed="${ongletAccueil === k}">${t}</button>`).join("")}</div>` : ""}${corps}`;
 }
 // Les gestes du magasinier, ouverts à toute l'équipe.
-const vDepot = () => `<h1>Au dépôt</h1><p class="sous">Scanner, sortir, rentrer, compter : les gestes de tous les jours, ouverts à toute l'équipe.</p>${wScan()}${wActions()}`;
+const vDepot = () => `<h1>Au dépôt</h1>${wScan()}${wActions()}`;
 function tObjet(id) {
   const a = art(id); if (!a) return `<p>Objet introuvable.</p>`;
   if (a.retire) return objetRetire(a);
   const q = stock(id), e = etat(a), pret = logique(a) === "pret";
-  const jauge = a.type === "equip" ? `<div class="t-stock">${q >= 1 ? "Ici" : "Sorti"}</div>` : anneau(q, a.cible, couleurEtat(e), q, `en stock sur ${a.cible}`);
+  // La jauge tient en une ligne : le chiffre en grand, le niveau normal, une barre. Les boutons restent visibles à l'arrivée sur un petit téléphone.
+  const part = a.cible > 0 ? Math.max(0, Math.min(100, Math.round(q / a.cible * 100))) : 0;
+  const jauge = a.type === "equip" ? `<div class="to-jauge"><b class="t-stock">${q >= 1 ? "Ici" : "Sorti"}</b></div>`
+    : `<div class="to-jauge" role="img" aria-label="${q} en stock sur ${a.cible}"><b class="t-stock">${q}</b><span>en stock<br>sur ${a.cible}</span><i class="to-barre"><i style="width:${part}%;background:${couleurEtat(e)}"></i></i></div>`;
   const lots = metier().dlc ? lotsEnStock(id) : [];
-  const c = conseil(a);
+  const c = conseil(a), d = dehors(id);
   const b1 = pret ? ["Prêt", "sortie", I.sortie, V("pretSortie"), V("pretSortieSous")] : ["Sortie", "sortie", I.sortie, V("prendre"), V("prendreSous")];
   const b2 = pret ? ["Retour", "retour", I.retour, V("pretRetour"), V("pretRetourSous")] : ["Surplus", "retour", I.retour, V("remettre"), V("remettreSous")];
   const bouton = ([mvt, cl, ic, t, st]) => `<button class="t-action ${cl} ${c.mvt === mvt ? "conseil" : ""}" data-mvt="${mvt}">${ic}<span>${t}<small>${st}</small></span></button>`;
-  // Le geste le plus probable passe en premier et un peu plus grand
-  const actions = (c.html || "") + (c.mvt === b2[0] ? bouton(b2) + bouton(b1) : bouton(b1) + bouton(b2));
-  return `<div class="t-objet">${img(a)}<span class="code">${a.id}</span><h1>${esc(a.nom)}</h1>
-    ${jauge}<div style="margin-top:8px"><span class="etat ${e.c}"><i></i>${e.t}</span></div>
+  const leger = ([mvt, cl, ic, t]) => `<button class="t-action leger ${cl}" data-mvt="${mvt}">${ic}<span>${t}</span></button>`;
+  // Un geste impossible n'est pas proposé : rien à sortir quand le stock est vide, rien à rentrer quand rien n'est dehors.
+  const faisable = b => b[0] === "Retour" ? d.length > 0 : ["Prêt", "Sortie"].includes(b[0]) ? q > 0 : true;
+  // Le geste le plus probable passe en premier et un peu plus grand. Deux gestes en couleur pleine, pas plus : les autres sont en contour.
+  const ordre = (c.mvt === b2[0] ? [b2, b1] : [b1, b2]).filter(faisable), pleins = ordre.slice(0, c.html ? 1 : 2);
+  const perime = metier().dlc && !pret, nAtelier = pret ? totalAtelier(id) : 0;
+  return `<div class="t-objet"><div class="to-tete">${img(a)}<div><span class="code">${a.id}</span><h1>${esc(a.nom)}</h1><span class="etat ${e.c}"><i></i>${e.t}</span></div></div>
+    ${jauge}
     ${ligneControle(a)}${ligneLieux(a)}
-    ${lots.length ? `<p class="lot-premier">À sortir en premier : ${lots[0].qte} avec date limite au <b>${dateFr(lots[0].dlc)}</b></p>` : ""}</div>
-  <div class="t-actions">${actions}
-    <button class="t-action compter" data-mvt="Compter">${I.compter}<span>Compter<small>Je vérifie combien il y en a</small></span></button>
-    ${boutonControleFait(a)}${boutonTransfert(a)}${boutonEnvoiEtab(a)}
-    ${pret ? `<button class="btn" data-atelier="${a.id}">À réparer ou à nettoyer${totalAtelier(id) ? ` (${totalAtelier(id)} déjà à l'atelier)` : ""}</button>` : ""}
-    <button class="t-action perte" data-mvt="Perte">${I.perte}<span>${metier().dlc ? "Périmé, cassé ou perdu" : "Cassé ou perdu"}</span></button>
-    ${permis("materiel") ? `<button class="btn" data-fiche="${a.id}">${I.materiel}Fiche complète : ${droit("prix") ? "prix, " : ""}historique, entrée en stock</button>` : ""}
+    ${lots.length ? `<p class="lot-premier">À sortir en premier : <b>${lots[0].qte}</b> · date limite <b>${dateFr(lots[0].dlc)}</b></p>` : ""}</div>
+  <div class="t-actions">${c.html || ""}${pleins.map(bouton).join("")}
+    ${boutonControleFait(a)}
+    <div class="t-legers">${ordre.slice(pleins.length).map(leger).join("")}
+      <button class="t-action leger compter" data-mvt="Compter">${I.compter}<span>Compter</span></button>
+      ${pret ? `<button class="t-action leger atelier" data-atelier="${a.id}">${I.cle}<span>À réparer ou nettoyer${nAtelier ? `<small>${nAtelier} à l'atelier</small>` : ""}</span></button>` : ""}
+      <button class="t-action leger perte" data-mvt="Perte">${I.perte}<span>${perime ? "Périmé, cassé ou perdu" : "Cassé ou perdu"}</span></button>
+      ${boutonTransfert(a)}${boutonEnvoiEtab(a)}
+      ${permis("materiel") ? `<button class="t-action leger" data-fiche="${a.id}">${I.materiel}<span>Fiche complète</span></button>` : ""}
+    </div>
   </div>`;
 }
 /* Le geste le plus probable, d'après ce qui se passe autour de l'objet */
@@ -459,7 +497,7 @@ function conseil(a) {
   const prep = actif("MO-RES") && S.reservations.find(r => ["Confirmée", "Préparée"].includes(r.statut) && r.debut <= demain && r.lignes.some(l => l[0] === id) && (r.charge[id] || 0) < r.lignes.find(l => l[0] === id)[1]);
   if (prep) return { html: `<button class="t-action sortie conseil" data-prep="${prep.id}">${I.camion}<span>Charger pour ${esc(prep.nom)}<small>Départ ${prep.debut <= auj ? "aujourd'hui" : "demain"} · ${prep.charge[id] || 0} / ${prep.lignes.find(l => l[0] === id)[1]} chargés</small></span></button>` };
   const cmd = S.commandes.find(k => ["Envoyée", "Reçue en partie"].includes(k.statut) && k.lignes.some(l => l.id === id && (l.recu || 0) < l.qte));
-  if (cmd) return { html: `<button class="t-action compter conseil" data-recep="${cmd.id}">${I.camion}<span>Réceptionner la livraison<small>${esc(cmd.fournisseur)} · ${cmd.id}</small></span></button>` };
+  if (cmd) return { html: `<button class="t-action compter conseil" data-recep="${cmd.id}">${I.camion}<span>Réceptionner la livraison<small>${cmd.id} · ${esc(cmd.fournisseur)}</small></span></button>` };
   if (logique(a) === "pret" && dehors(id).length) return { mvt: "Retour" };
   return { mvt: logique(a) === "pret" ? "Prêt" : "Sortie" };
 }
@@ -494,7 +532,7 @@ function tRecuperer() {
 function tRetourEvenement(ev) {
   const l = dehors().filter(d => d.evenement === ev);
   if (!l.length) return `<h1>Tout est revenu</h1><button class="btn" data-aller="terrain">Accueil</button>`;
-  return `<h1>${esc(ev)}</h1><p class="sous">Indiquez ce qui revient vraiment. Ce qui manque sera noté à refacturer.</p>
+  return `<h1>${esc(ev)}</h1><p class="sous">Corrigez seulement ce qui manque.</p>
   <form data-form="retourEv"><ul class="t-liste">${l.map(d => { const a = art(d.article); return `<li><div class="t-retour">${img(a)}<span><b>${esc(a.nom)}</b><small>parti : ${d.qte}</small></span>
     <input type="number" inputmode="numeric" min="0" max="${d.qte}" name="${a.id}" value="${d.qte}" aria-label="Revenus : ${esc(a.nom)}"></div></li>`; }).join("")}</ul>
   <div class="valider"><button type="button" class="btn" data-aller="recuperer">Annuler</button><button class="btn plein" style="background:var(--retour);border-color:var(--retour);color:#fff">Valider le retour</button></div></form>`;
@@ -523,6 +561,8 @@ function cycle() {
 }
 function blocPeremption() {
   const j = metier().alerteDlc || 4, l = bientotPerimes(j);
+  // Rien ne périme : une ligne discrète, pas un bloc entier.
+  if (!l.length) return `<p class="w-ligne"><b>Dates limites</b> Rien ne périme dans les ${j} prochains jours.</p>`;
   return `<h2>À utiliser en premier</h2>${l.length ? `<ul class="b-liste">${l.slice(0, 6).map(x => `<li><button class="l" data-objet="${x.a.id}">${img(x.a)}<span><b>${esc(x.a.nom)}</b><small>${x.qte} avec date limite au ${dateFr(x.dlc)}${x.lieu !== undefined ? " · " + esc(nomLieu(x.lieu)) : ""}</small></span><span class="statut s-partie">${x.dlc <= new Date().toISOString().slice(0, 10) ? "Périmé" : "Bientôt"}</span></button></li>`).join("")}</ul>` : `<p class="vide">Rien ne périme dans les ${j} prochains jours.</p>`}`;
 }
 function bMateriel(f) {
@@ -536,7 +576,7 @@ function bMateriel(f) {
   const compte = k => k === "retires" ? S.retires.length : k === "tous" ? S.articles.length : k === "alerte" ? S.articles.filter(a => ["zero", "bas"].includes(etat(a).c)).length : k === "controle" ? ctrl.length : ids.size;
   return `<h1>${esc(titreSection("materiel"))}</h1>${outilsArticles()}
   <div class="outils-liste"><div class="filtres">${[["tous", "Tout"], ["alerte", "À commander"]].concat(aDesPrets() ? [["dehors", V("chez")]] : [], suiviControles() ? [["controle", "À contrôler"]] : [], aDesRetires() ? [["retires", "Retirés"]] : []).map(([k, t]) => `<button data-filtre-materiel="${k}" aria-pressed="${f === k}">${t}<span class="nb">${compte(k)}</span></button>`).join("")}</div>
-  ${champFiltre("#liste-materiel", exempleRecherche())}${choixLieuStock()}<span class="filtre-compte" data-filtre-compte role="status"></span></div>
+  ${champFiltre("#liste-materiel", exempleRecherche())}${boutonNouvelArticle()}${choixLieuStock()}<span class="filtre-compte" data-filtre-compte role="status"></span></div>
   <ul class="b-liste" id="liste-materiel">${l.map(a => { const e = etat(a); return `<li data-cherche="${cherchable(a.nom, a.id, zoneDe(a), e.t)}"><button class="l" data-fiche="${a.id}">${img(a)}<span><b>${esc(a.nom)}</b><small><span class="code">${a.id}</span> · <span class="etat ${e.c}"><i></i>${e.t}</span>${pastilleControle(a, f === "controle")}</small></span><span class="l-zone">${esc(zoneDe(a))}</span><span class="n">${qteStock(a)}</span></button></li>`; }).join("")}
   <li class="vide" data-rien ${l.length ? "hidden" : ""}>${l.length ? "Aucun objet ne correspond à cette recherche." : filtreLieuActif() ? `Rien ici : ${esc(nomLieu(lieuStock))}.` : vide}</li></ul>`;
 }
@@ -606,7 +646,7 @@ function brouillons() {
 }
 function bCommandes() {
   const b = Object.entries(brouillons());
-  return `<h1>Commandes</h1><p class="sous">Préparées seules à partir des seuils. Au-dessus de ${argent(SEUIL_VALIDATION_EUR)}, la direction valide.</p>
+  return `<h1>Commandes</h1><p class="sous">Préparées seules. Au-dessus de ${argent(SEUIL_VALIDATION_EUR)}, la direction valide.</p>
   ${b.map(([fid, l]) => {
     const f = S.fournisseurs.find(x => x.id === fid);
     const tot = l.reduce((t, x) => t + x.qte * art(x.id).prix, 0);
@@ -636,8 +676,9 @@ function bDocs() {
   const registre = suiviControles() ? [["controles", PICTO_CONTROLE, "Registre des contrôles", "Échéances, dernier contrôle et par qui, à imprimer"]] : [];
   const d = session.profil === "direction" ? argent_.concat(registre, excel) : papier.concat(registre, argent_.slice(1), excel);
   const acte = k => ["csv", "finAnnee", "exportClients"].includes(k);
-  return `<h1>Documents</h1><p class="sous">Ce que vous pouvez imprimer, envoyer ou transmettre. Les fichiers Excel s'ouvrent aussi dans Google Sheets et LibreOffice.</p>
-  <div class="docs">${d.map(([k, ic, t, s_]) => `<button class="doc-carte" ${acte(k) ? `data-act="${k}"` : `data-aller="${k}"`}><span class="pastille ${acte(k) ? "excel" : ""}">${ic}</span><span><b>${t}</b><small>${s_}</small></span></button>`).join("")}</div>`;
+  return `<h1>Documents</h1><p class="sous">À imprimer, à envoyer ou à transmettre.</p>
+  <div class="docs">${d.map(([k, ic, t, s_]) => `<button class="doc-carte" ${acte(k) ? `data-act="${k}"` : `data-aller="${k}"`}><span class="pastille ${acte(k) ? "excel" : ""}">${ic}</span><span><b>${t}</b><small>${s_}</small></span></button>`).join("")}</div>
+  <p class="w-note docs-note">Les fichiers Excel s'ouvrent aussi dans Google Sheets et LibreOffice.</p>`;
 }
 const retourDocs = `<p class="pas-imprimer"><button class="lien" data-aller="docs">← Documents</button> · <button class="lien" data-act="imprimer">Imprimer ou enregistrer en PDF</button></p>`;
 const bEtiquettes = id => id && art(id) ? etiquetteSeule(id) : `${retourDocs}<div class="pas-imprimer"><h1>Planche d'étiquettes</h1><p class="sous">Scanné avec l'appareil photo, le QR ouvre directement la fiche de l'objet.</p></div>
@@ -661,17 +702,17 @@ let periode = 30;
 /* Équipe et accès : qui peut entrer, avec quel rôle, et le journal des connexions */
 const ROLES = { terrain: "Terrain : dépôt et camion", chauffeur: "Chauffeur : livraisons et reprises", bureau: "Bureau : stock et commandes", direction: "Direction : argent et décisions" };
 function dAcces() {
-  return `<p class="sous">Chacun entre avec son identifiant et son mot de passe. Chaque mouvement porte son nom. Retirer un accès prend une seconde.</p>
+  return `${sousAide("Chacun a son accès. Il se retire d'un geste.", "Chacun entre avec son identifiant et son mot de passe. Chaque mouvement porte son nom. Retirer un accès prend une seconde ; les mouvements de la personne restent dans le journal.")}
   <div class="bloc">${S.equipe.map(u => `<div class="personne ${u.actif ? "" : "inactif"}">${avatar(u)}<div><b>${esc(u.nom)}${u.admin ? " · administre le compte" : ""}</b><small><span class="code">${esc(u.identifiant || "")}</span> · ${esc(u.poste)} · ${ROLES[u.role]}${u.actif ? (u.empreinte ? "" : " · invitation en attente") : " · accès retiré"}</small></div>
     <div class="actions">${u.id === session.uid ? `<button class="btn petit" data-nouveau-code="${u.id}">Changer mon mot de passe</button>` : `${u.actif ? `<button class="btn petit ${u.empreinte ? "" : "plein"}" data-inviter="${u.id}">${u.empreinte ? "Nouveau lien d'accès" : "Inviter"}</button>` : ""}<label class="inter"><input type="checkbox" data-acces="${u.id}" ${u.actif ? "checked" : ""} aria-label="Accès de ${esc(u.nom)}"><span></span></label>`}</div></div>`).join("")}</div>
   <p style="margin-top:12px"><button class="btn plein petit" data-act="ajouterPersonne">Ajouter une personne</button></p>
   <p class="w-note">Un mot de passe oublié ? « Nouveau lien d'accès » : la personne en choisit un autre elle-même. Personne d'autre ne le connaît, pas même vous.</p>
   <h2>Sécurité</h2>
   <div class="bloc"><div class="module"><label for="verrou"><b>Verrouillage automatique</b></label><select id="verrou" data-verrou>${[[1, "Après 1 minute"], [5, "Après 5 minutes"], [15, "Après 15 minutes"], [0, "Jamais"]].map(([v, n]) => `<option value="${v}" ${S.reglages.verrou === v ? "selected" : ""}>${n}</option>`).join("")}</select><p>Sans toucher l'écran, le téléphone redemande le mot de passe de la même personne.</p></div>
-  <div class="module"><b>Mots de passe faux</b><span></span><p>Après 5 erreurs, il faut attendre 30 secondes. Chaque essai est noté ci-dessous.</p></div></div>
-  <h2>Journal des connexions</h2>
-  ${S.connexions.length ? `<div class="defile"><table class="t"><thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th class="n">Résultat</th></tr></thead><tbody>${S.connexions.slice(0, 20).map(c => `<tr><td>${quand(c.date)}</td><td>${esc(c.nom)}</td><td>${esc(c.motif)}</td><td class="n"><span class="resultat ${c.ok ? "ok" : "ko"}">${c.ok ? "Réussie" : "Refusée"}</span></td></tr>`).join("")}</tbody></table></div>` : `<p class="vide">Aucune connexion enregistrée pour l'instant.</p>`}
-  <h2>Ce qui protège les données en vrai</h2>
+  <div class="module"><b>Mots de passe faux</b><span></span><p>Après 5 erreurs, il faut attendre 30 secondes. Chaque essai est noté dans le journal des connexions.</p></div></div>
+  <details class="art-details acces-volet"><summary>Journal des connexions</summary>
+  ${S.connexions.length ? `<div class="defile"><table class="t"><thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th class="n">Résultat</th></tr></thead><tbody>${S.connexions.slice(0, 20).map(c => `<tr><td>${quand(c.date)}</td><td>${esc(c.nom)}</td><td>${esc(c.motif)}</td><td class="n"><span class="resultat ${c.ok ? "ok" : "ko"}">${c.ok ? "Réussie" : "Refusée"}</span></td></tr>`).join("")}</tbody></table></div>` : `<p class="vide">Aucune connexion enregistrée pour l'instant.</p>`}</details>
+  <details class="art-details acces-volet"><summary>Comment vos données sont protégées</summary>
   <ul class="puces">
     <li>La liste de l'équipe n'est jamais affichée à l'entrée : il faut connaître son identifiant.</li>
     <li>Chacun choisit son mot de passe à partir d'un lien d'invitation, valable 7 jours et une seule fois. Aucun mot de passe ne circule par message.</li>
@@ -679,7 +720,7 @@ function dAcces() {
     <li>Les droits sont appliqués par le serveur : une personne sans le droit « prix » ne reçoit même pas les prix.</li>
     <li>Le journal des mouvements ne s'efface pas. Une erreur se corrige par un nouveau mouvement.</li>
     <li>Un téléphone perdu se coupe à distance. Les données restent dans le compte de l'entreprise.</li>
-  </ul>`;
+  </ul></details>`;
 }
 const MDP_FAIBLES = ["123456", "1234567", "12345678", "azerty", "azertyuiop", "motdepasse", "password", "000000", "111111"];
 function feuilleCode(uid) {
@@ -738,17 +779,27 @@ function dInstallation() {
   const restantes = Math.max(0, OFFRE.heures - inst.heuresUtilisees), enCours = jours > 0 && restantes > 0;
   // Les montants ne s'affichent que sur l'appareil de l'installateur : la démo publique ne montre aucun prix, comme le site.
   const prix = ESPACE;
+  // Trois lignes d'abord (l'offre, l'assistance, le bouton) ; le détail et les fonctions à ajouter s'ouvrent d'un geste.
+  const installes = Object.entries(CATALOGUE).filter(([k]) => actif(k)), aAjouter = Object.entries(CATALOGUE).filter(([k]) => !actif(k));
+  const detail = m => m.detailClient || m.detail;
   return `<h1>Votre installation</h1>
-  <p class="sous">Offre ${OFFRE.nom}, payée une fois${prix ? ` : ${fmt(OFFRE[unite])} HT` : ""}, livrée le ${new Date(inst.livreLe).toLocaleDateString("fr-FR")}. L'appli et les données vous appartiennent. Rien n'est dû chaque mois à Stockclair.</p>
-  <div class="bloc"><div class="module"><b>Assistance incluse</b><span class="statut ${enCours ? "s-revenue" : "s-partie"}">${enCours ? "en cours" : "terminée"}</span>
-    <p>${enCours ? `Encore ${jours} jour${jours > 1 ? "s" : ""} et ${String(restantes).replace(".", ",")} h sur ${OFFRE.heures} h. ` : `Terminée le ${new Date(fin).toLocaleDateString("fr-FR")}. `}Elle couvre les corrections de notre paramétrage et les questions d'utilisation, pas les nouvelles fonctions.</p></div>
-  <div class="module"><b>Intervention ensuite</b><span>${prix ? fmt(TARIF_INTERVENTION[unite]) + " HT / h" : "sur devis"}</span><p>À distance, par quart d'heure, 30 minutes au minimum, toujours sur devis accepté.</p></div>
-  <div class="module"><b>Chaque mois</b><span>rien à payer</span><p>Vos données sont gardées dans votre propre compte Google : un seul compte suffit, un compte gratuit convient. Rien n'est à payer par personne.</p></div></div>
+  <div class="bloc inst-resume">
+    <div class="module"><b>Offre ${OFFRE.nom}</b><span class="statut">payée une fois</span><p>Livrée le ${new Date(inst.livreLe).toLocaleDateString("fr-FR")}${prix ? `, ${fmt(OFFRE[unite])} HT` : ""}. Rien à payer chaque mois.</p></div>
+    <div class="module"><b>Assistance incluse</b><span class="statut ${enCours ? "s-revenue" : "s-partie"}">${enCours ? "en cours" : "terminée"}</span>
+      <p>${enCours ? `Encore ${jours} jour${jours > 1 ? "s" : ""} et ${String(restantes).replace(".", ",")} h sur ${OFFRE.heures} h.` : `Terminée le ${new Date(fin).toLocaleDateString("fr-FR")}.`}</p></div>
+  </div>
   <p style="margin-top:12px"><button class="btn plein" data-act="demanderIntervention">Demander une intervention</button></p>
+  <details class="art-details inst-detail"><summary>Voir le détail</summary>
+    <div class="module"><b>Ce que couvre l'assistance</b><span></span><p>Les corrections de notre paramétrage et les questions d'utilisation, pas les nouvelles fonctions.</p></div>
+    <div class="module"><b>Intervention ensuite</b><span>${prix ? fmt(TARIF_INTERVENTION[unite]) + " HT / h" : "sur devis"}</span><p>À distance, par quart d'heure, 30 minutes au minimum, toujours sur devis accepté.</p></div>
+    <div class="module"><b>Vos données</b><span>à vous</span><p>L'appli et les données vous appartiennent. Elles sont gardées dans votre propre compte Google : un seul compte suffit, un compte gratuit convient. Rien n'est dû chaque mois à Stockclair, ni par personne.</p></div>
+  </details>
   ${(S.interventions || []).length ? `<h2>Vos demandes</h2><table class="t"><tbody>${S.interventions.slice().reverse().map(i => `<tr><td>${quand(i.date)}<br><small>${esc(i.texte)}</small></td><td class="n">${i.incluse ? "dans l'assistance" : "devis envoyé"}</td></tr>`).join("")}</tbody></table>` : ""}
   <h2>Ce qui est installé</h2>
-  <p class="sous">Réglé à l'installation, d'après votre devis. Pour ajouter une fonction, demandez un devis : elle se paie une fois et reste à vous.</p>
-  <div class="bloc">${Object.entries(CATALOGUE).map(([k, m]) => `<div class="module"><b>${m.nom}</b>${actif(k) ? `<span class="statut s-revenue">installé</span>` : `<button class="btn petit" data-devis="${k}">Demander un devis</button>`}<p>${m.detail}.${actif(k) ? "" : prix ? ` Environ ${fmt(m[unite])} HT, une fois.` : " Payée une fois, sur devis."}</p></div>`).join("")}</div>
+  ${installes.length ? `<ul class="inst-liste">${installes.map(([, m]) => `<li><details><summary><i aria-hidden="true"></i>${m.nom}</summary><p>${detail(m)}.</p></details></li>`).join("")}</ul>` : `<p class="vide">Aucune fonction en plus de l'offre.</p>`}
+  ${aAjouter.length ? `<details class="art-details inst-ajout"><summary>Ajouter une fonction</summary>
+    <p class="sous">Une fonction se paie une fois, sur devis, et reste à vous.</p>
+    ${aAjouter.map(([k, m]) => `<div class="module"><b>${m.nom}</b><button class="btn petit" data-devis="${k}">Demander un devis</button><p>${detail(m)}.${prix ? ` Environ ${fmt(m[unite])} HT, une fois.` : ""}</p></div>`).join("")}</details>` : ""}
   <h2>Réglages</h2>
   <div class="module"><b>Vos coordonnées sur les documents</b><button class="btn petit" data-act="coordonnees">Modifier</button><p>${S.entreprise && S.entreprise.nom ? esc(S.entreprise.nom) : "Nom, adresse, téléphone et logo en haut des bons et des factures."}</p></div>
   <div class="module"><label for="monnaie"><b>Monnaie des montants</b></label><select id="monnaie" data-monnaie><option value="EUR" ${S.monnaie === "EUR" ? "selected" : ""}>Euro</option><option value="XOF" ${S.monnaie === "XOF" ? "selected" : ""}>Franc CFA</option></select><p>Pour les prix, les pertes et les factures.</p></div>`;
@@ -817,9 +868,20 @@ document.addEventListener("keydown", e => {
 function compteur(f, min, max) {
   const c = f.querySelector("input[type=number]");
   const borne = v => Math.max(min, max !== null ? Math.min(max, v) : v);
-  f.querySelectorAll("[data-pas]").forEach(b => b.onclick = () => c.value = borne((+c.value || 0) + +b.dataset.pas));
-  f.querySelectorAll("[data-plus]").forEach(b => b.onclick = () => c.value = borne((+c.value || 0) + +b.dataset.plus));
+  // Le raccourci dont la valeur est affichée reste marqué, pour qu'on voie d'un coup d'œil ce qui est choisi.
+  const marquer = () => f.querySelectorAll("[data-fixe]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.fixe === +c.value)));
+  f.querySelectorAll("[data-pas]").forEach(b => b.onclick = () => { c.value = borne((+c.value || 0) + +b.dataset.pas); marquer(); });
+  f.querySelectorAll("[data-plus]").forEach(b => b.onclick = () => { c.value = borne((+c.value || 0) + +b.dataset.plus); marquer(); }); // transfert entre lieux, envoi entre établissements
+  // Un raccourci fixe la quantité : « 10 » donne 10, quel que soit le chiffre déjà affiché.
+  f.querySelectorAll("[data-fixe]").forEach(b => b.onclick = () => { c.value = borne(+b.dataset.fixe); marquer(); });
+  c.addEventListener("input", marquer); marquer();
   return c;
+}
+// Les raccourcis de quantité d'une feuille : jamais plus que ce qu'on peut prendre, et « Tout » quand le stock tient en un toucher.
+function raccourcisQte(max) {
+  const l = [10, 50, 100].filter(n => max === null || n <= max);
+  const tout = max !== null && max > 10 && !l.includes(max) ? `<button type="button" data-fixe="${max}">Tout (${max})</button>` : "";
+  return l.length || tout ? `<div class="rapides">${l.map(n => `<button type="button" data-fixe="${n}">${n}</button>`).join("")}${tout}</div>` : "";
 }
 function choixEvenement(liste) {
   const usage = {};
@@ -838,7 +900,22 @@ function evChoisi(f) {
   return t;
 }
 function brancherAutre(f) { const t = f.querySelector("[name=evAutre]"); if (t) t.oninput = t.onfocus = () => { f.querySelector('input[name=ev][value="__autre"]').checked = true; }; }
-const radios = (nom, liste, etiquette) => `<p class="choix-titre">${etiquette}</p><div class="choix" role="radiogroup" aria-label="${etiquette}">${liste.map((e, i) => `<label><input type="radio" name="${nom}" value="${esc(e)}" ${i === 0 ? "checked" : ""}>${esc(e)}</label>`).join("")}</div>`;
+// Un seul choix possible : on ne pose pas la question. La réponse reste dans la feuille, et s'écrit en une ligne quand elle apprend quelque chose.
+const radios = (nom, liste, etiquette, cls) => liste.length === 1
+  ? `<input type="radio" name="${nom}" value="${esc(liste[0])}" checked hidden>${liste[0] === "Au dépôt" ? "" : `<p class="choix-seul">${etiquette} : <b>${esc(liste[0])}</b></p>`}`
+  : `<p class="choix-titre">${etiquette}</p><div class="choix ${cls || ""}" role="radiogroup" aria-label="${etiquette}">${liste.map((e, i) => `<label><input type="radio" name="${nom}" value="${esc(e)}" ${i === 0 ? "checked" : ""}>${esc(e)}</label>`).join("")}</div>`;
+// Motifs d'une perte : « Périmé » quand le métier suit des dates limites, « Pas rendu » seulement pour ce qui est dehors.
+function motifsPerte(a, dehorsIci) {
+  if (metier().dlc && logique(a) !== "pret") return ["Périmé", "Cassé", "Perdu", "Volé"];
+  return ["Cassé", dehorsIci ? "Pas rendu" : "Perdu", "Abîmé", "Volé"];
+}
+// Quantité proposée à l'ouverture d'une sortie : ce qu'un départ proche attend encore, sinon le lot de l'objet (« 1 scan = 10 »), sinon 1.
+function qteDepart(a, q) {
+  const demain = isoJour(Date.now() + JOUR_MS);
+  const r = actif("MO-RES") && logique(a) === "pret" && S.reservations.find(x => ["Confirmée", "Préparée"].includes(x.statut) && x.debut <= demain && x.lignes.some(l => l[0] === a.id && (x.charge[a.id] || 0) < l[1]));
+  const n = r ? r.lignes.find(l => l[0] === a.id)[1] - (r.charge[a.id] || 0) : a.lot > 1 ? a.lot : 1;
+  return Math.max(1, Math.min(n, q));
+}
 
 /* Comptage très loin de l'attendu : on demande confirmation avant d'enregistrer, une faute de frappe est vite arrivée.
    La règle : l'écart fait au moins 5 unités ET au moins la moitié de la quantité attendue. */
@@ -859,22 +936,33 @@ function feuille(id, type) {
   const a = art(id), q = stock(id), d = dehors(id);
   if (type === "Retour" && !d.length) return toast("Rien de cet objet n'est chez un client.");
   if (["Prêt", "Sortie"].includes(type) && q <= 0) return toast("Il n'y en a plus en stock.");
-  const titre = { "Sortie": "Combien en sortez-vous ?", "Surplus": "Combien en remettez-vous ?", "Prêt": "Combien partent ?", "Retour": "Combien reviennent ?", "Compter": "Combien en voyez-vous ?", "Perte": "Combien sont cassés ou perdus ?", "Entrée": "Combien entrent en stock ?" }[type];
-  const defaut = type === "Compter" ? q : type === "Retour" ? d[0].qte : 1;
+  const perime = type === "Perte" && metier().dlc && logique(a) !== "pret";
+  const titre = { "Sortie": "Combien en sortez-vous ?", "Surplus": "Combien en remettez-vous ?", "Prêt": "Combien partent ?", "Retour": "Combien reviennent ?", "Compter": "Combien en voyez-vous ?", "Perte": perime ? "Combien sont périmés, cassés ou perdus ?" : "Combien sont cassés ou perdus ?", "Entrée": "Combien entrent en stock ?" }[type];
+  const max = ["Prêt", "Sortie"].includes(type) ? q : null;
+  const defaut = type === "Compter" ? q : type === "Retour" ? d[0].qte : max !== null ? qteDepart(a, q) : 1;
   const evs = ["Prêt", "Sortie", "Surplus"].includes(type) ? S.evenements : type === "Retour" ? d.map(x => x.evenement) : type === "Perte" ? ["Au dépôt"].concat(d.map(x => x.evenement)) : null;
+  // Raccourcis : pour ce qui se compte par dizaines, jamais au-delà de ce qui est là. Une perte se compte à l'unité.
+  const plafond = max !== null ? max : type === "Retour" ? Math.max(...d.map(x => x.qte)) : null;
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tf">
     <div class="tete">${img(a)}<div><span class="code">${a.id}</span><br><b>${esc(a.nom)}</b></div></div>
     <h1 id="tf" style="font-size:26px">${titre}</h1>
     <div class="compteur"><button data-pas="-1" aria-label="Un de moins">−</button><input type="number" inputmode="numeric" min="0" value="${defaut}" aria-label="Quantité"><button data-pas="1" aria-label="Un de plus">+</button></div>
-    ${a.type === "conso" && type !== "Compter" ? `<div class="rapides">${[10, 50, 100].map(n => `<button data-plus="${n}">+${n}</button>`).join("")}</div>` : ""}
+    ${a.type === "conso" && !["Compter", "Perte"].includes(type) ? raccourcisQte(plafond) : ""}
     ${evs ? (["Prêt", "Sortie", "Surplus"].includes(type) ? choixEvenement(evs) : radios("ev", evs, V("imp"))) : ""}
-    ${type === "Perte" ? radios("motif", ["Cassé", "Pas rendu", "Abîmé", "Volé"], "Motif") : ""}
+    ${type === "Perte" ? radios("motif", motifsPerte(a, d.length > 0), "Motif", "deux") : ""}
     ${champLieu(a, type)}
-    <div class="valider"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Valider</button></div></div>`);
-  const max = ["Prêt", "Sortie"].includes(type) ? q : null;
+    <div class="valider colle"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Valider</button></div></div>`);
   const champ = compteur(f, 0, max);
   brancherAutre(f); brancherLieuFeuille(f, id, type, champ);
-  if (type === "Retour") f.querySelectorAll("input[name=ev]").forEach(r => r.onchange = () => { champ.value = d.find(x => x.evenement === r.value).qte; });
+  // Avec plusieurs lieux de stock : les raccourcis et la quantité proposée suivent ce qu'il y a dans le lieu choisi.
+  if (max !== null) {
+    const suivreLieu = () => { const dsp = dispoGeste(f, id, type); if (dsp === null) return;
+      f.querySelectorAll("[data-fixe]").forEach(b => { b.hidden = +b.dataset.fixe > dsp; });
+      if (+champ.value > dsp) { champ.value = Math.max(dsp ? 1 : 0, dsp); champ.dispatchEvent(new Event("input")); } };
+    const sl = f.querySelector("select[name=lieu]"); if (sl) sl.addEventListener("change", suivreLieu);
+    suivreLieu();
+  }
+  if (type === "Retour") f.querySelectorAll("input[name=ev]").forEach(r => r.onchange = () => { champ.value = d.find(x => x.evenement === r.value).qte; champ.dispatchEvent(new Event("input")); });
   f.querySelector("[data-x]").onclick = () => f.remove();
   const valider = confirme => {
     const n = Math.floor(+champ.value);
@@ -912,10 +1000,12 @@ function feuille(id, type) {
   f.querySelector("[data-ok]").onclick = () => valider();
 }
 function manquants(ev, liste, rendus) {
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true"><h1 style="font-size:26px">Il manque des objets</h1>
+  // Rentrer une partie d'un lot est un geste normal (deux voyages) : le titre constate, le choix sans conséquence passe en premier.
+  const total = liste.reduce((t, [, q]) => t + q, 0);
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tmq"><h1 id="tmq" style="font-size:26px">${total > 1 ? `${total} ne sont pas de retour` : "1 n'est pas de retour"}</h1>
     <p>${liste.map(([id, q]) => `<b>${q}</b> × ${esc(art(id).nom)}`).join("<br>")}</p>
-    <div class="t-actions"><button class="t-action perte" data-c="perte">${I.perte}<span>Cassés ou perdus : à refacturer</span></button>
-    <button class="btn" data-c="attente">Ils reviendront plus tard</button></div></div>`);
+    <div class="t-actions manque-choix"><button class="btn plein" data-c="attente">${total > 1 ? "Le reste reviendra plus tard" : "Il reviendra plus tard"}</button>
+    <button class="btn" data-c="perte">${I.perte}<span>Cassé ou perdu<small>Noté à refacturer</small></span></button></div></div>`);
   f.onclick = null;
   f.querySelectorAll("[data-c]").forEach(b => b.onclick = () => {
     const perte = b.dataset.c === "perte";
@@ -929,7 +1019,7 @@ function feuilleKit(kid) {
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true"><h1 style="font-size:26px">${esc(k.nom)}</h1><p class="sous">Combien de kits ?</p>
     <div class="compteur"><button data-pas="-1" aria-label="Un de moins">−</button><input type="number" inputmode="numeric" min="1" value="1" aria-label="Nombre de kits"><button data-pas="1" aria-label="Un de plus">+</button></div>
     ${choixEvenement(S.evenements)}
-    <div class="valider"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Valider</button></div></div>`);
+    <div class="valider colle"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Valider</button></div></div>`);
   const champ = compteur(f, 1, null);
   brancherAutre(f);
   f.querySelector("[data-x]").onclick = () => f.remove();

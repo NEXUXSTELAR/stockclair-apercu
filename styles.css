@@ -1471,3 +1471,182 @@ label.btn:focus-within { outline: 3px solid var(--marque); outline-offset: 2px; 
   #racine.entree .eq-grille > :nth-child(n+4), #racine.entree .eq-chiffres > :nth-child(n+4) { animation-delay: 180ms; }
 }
 @media print { .eq-actions, .onglets-accueil { display: none !important; } }
+
+/* ===== Allègement : terrain ===== */
+/* Écran d'un objet : la photo à côté du nom, la jauge en une ligne, deux gestes en couleur pleine, les autres en contour.
+   Deux boutons au moins sont visibles à l'arrivée sur un téléphone de 360 × 640. */
+.t-objet { text-align: left; }
+.to-tete { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: center; }
+.t-objet .to-tete .vignette { width: 96px; margin: 0; border-radius: 16px; }
+.to-tete h1 { font-size: 22px; line-height: 1.15; margin: 2px 0 6px; overflow-wrap: anywhere; }
+.to-jauge { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: end; margin-top: 10px; }
+.to-jauge .t-stock { margin: 0; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.to-jauge span { color: var(--gris); font-weight: 700; font-size: 15px; line-height: 1.25; padding-bottom: 7px; }
+.to-barre { grid-column: 1 / -1; display: block; height: 8px; border-radius: 4px; background: var(--trait); margin-top: 6px; overflow: hidden; }
+.to-barre i { display: block; height: 100%; border-radius: 4px; }
+.t-objet .ctrl-etat, .t-objet .lieux-objet, .t-objet .lot-premier { margin-left: 0; margin-right: 0; max-width: none; justify-content: flex-start; }
+.t-objet + .t-actions { margin-top: 14px; }
+.t-objet + .t-actions .t-action:not(.leger) { grid-template-columns: 56px minmax(0, 1fr); }
+.t-objet + .t-actions .t-action.conseil small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 360px) { .t-objet + .t-actions .t-action:not(.leger) { grid-template-columns: 44px minmax(0, 1fr); } .t-objet + .t-actions .t-action.conseil { font-size: 21px; min-height: 92px; } }
+.t-legers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.t-legers > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.t-action.leger { background: var(--carte); color: var(--encre); box-shadow: inset 0 0 0 2px var(--trait-fort); min-height: 64px; font-size: 16px; font-weight: 700; line-height: 1.2; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 8px 12px; border-radius: 16px; }
+.t-action.leger svg { width: 30px; height: 30px; }
+.t-action.leger small { font-size: 13px; color: var(--gris); opacity: 1; }
+.t-action.leger.compter svg { color: var(--compter); }
+.t-action.leger.sortie svg { color: var(--sortie); }
+.t-action.leger.retour svg { color: var(--retour); }
+.t-action.leger.perte { color: var(--alerte); }
+.t-legers > .btn { min-height: 64px; border-radius: 16px; font-size: 16px; padding: 0 12px; line-height: 1.2; }
+@media (max-width: 360px) { .to-tete { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; } .t-objet .to-tete .vignette { width: 88px; } .to-tete h1 { font-size: 20px; } }
+
+/* Feuille de geste : raccourcis qui fixent la quantité, « Valider » toujours visible, une question de moins quand la réponse est connue */
+.rapides button[data-fixe] { flex: 1 1 auto; min-width: 56px; padding: 8px 10px; white-space: nowrap; min-height: 52px; font-size: 18px; background: transparent; box-shadow: inset 0 0 0 2px var(--trait-fort); font-variant-numeric: tabular-nums; }
+.rapides button[data-fixe][aria-pressed="true"] { background: var(--carte2); box-shadow: inset 0 0 0 2px var(--marque); }
+.feuille .choix.deux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.feuille .choix label { min-height: 52px; }
+.choix-seul { margin: 14px 0 0; color: var(--gris); font-weight: 600; }
+.choix-seul b { color: var(--encre); }
+.feuille .valider.colle { position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom)); z-index: 1; background: var(--carte); margin: 16px -16px calc(-20px - env(safe-area-inset-bottom)); padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 0 var(--trait); }
+/* Un message (« Annuler » du geste d'avant, une erreur de saisie) ne recouvre pas la feuille ouverte : il passe en haut de l'écran. */
+body:has(.feuille) .toast { bottom: auto; top: calc(10px + env(safe-area-inset-top)); }
+
+/* Retour partiel : un constat, puis le choix sans conséquence en premier */
+.manque-choix .btn { min-height: 64px; font-size: 18px; }
+.manque-choix .btn.plein { min-height: 76px; font-size: 20px; }
+.manque-choix .btn span { text-align: left; }
+.manque-choix .btn small { display: block; font-size: 14px; font-weight: 600; color: var(--gris); }
+.manque-choix .btn svg { width: 28px; height: 28px; color: var(--alerte); }
+
+/* Accueil du dépôt : le pavé Scanner tient en une bande (le bouton rond de la barre fait le même geste),
+   et une tuile seule sur sa ligne s'étend au lieu de laisser un trou. */
+.t-scan { display: grid; grid-template-columns: 60px minmax(0, 1fr); column-gap: 16px; align-items: center; text-align: left; padding: 18px 22px; min-height: 104px; }
+.t-scan svg { width: 60px; height: 60px; margin: 0; grid-row: 1 / span 2; }
+.t-scan b { align-self: end; line-height: 1.1; }
+.t-scan span { align-self: start; font-size: 15px; }
+.t-scan.petit { grid-template-columns: 44px minmax(0, 1fr); column-gap: 14px; padding: 14px 18px; min-height: 76px; }
+.t-scan.petit svg { width: 44px; height: 44px; }
+.t-scan.petit b { font-size: 20px; }
+.t-tuiles .t-tuile { grid-template-columns: 44px minmax(0, 1fr); align-items: center; align-content: center; gap: 12px; min-height: 84px; padding: 12px 14px; }
+.t-tuiles .t-tuile .pastille { width: 44px; height: 44px; }
+.t-tuiles .t-tuile svg { width: 26px; height: 26px; }
+.t-tuiles .t-tuile b { font-size: 17px; line-height: 1.2; overflow-wrap: anywhere; }
+.t-tuiles > .t-tuile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* Tournée du chauffeur : les deux chiffres en une ligne */
+.tournee-ligne { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; margin: 0 0 4px; color: var(--gris); font-weight: 600; }
+.tournee-ligne b { color: var(--encre); font-size: 20px; font-variant-numeric: tabular-nums; }
+
+/* Préparation d'un départ : un compte au lieu d'une alerte, les lignes complètes repliées, « Le camion part » toujours à portée */
+.prep-bilan.encours { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; margin: 12px 0; background: var(--carte); color: var(--gris); font-weight: 600; }
+.prep-bilan.encours b { color: var(--encre); font-size: 22px; font-variant-numeric: tabular-nums; }
+.prep-bilan.encours .barre { flex: 0 0 100%; display: block; height: 8px; border-radius: 4px; background: var(--trait); overflow: hidden; }
+.prep-bilan.encours .barre i { display: block; height: 100%; border-radius: 4px; background: var(--sortie); }
+.prep-bilan.encours small { flex: 0 0 100%; font-size: 15px; font-weight: 700; color: var(--encre); }
+.prep-bilan.complet { margin: 12px 0; }
+.prep-ligne.vide { box-shadow: none; }
+.prep-boutons .btn:not(.plein) { border: 2px solid var(--trait-fort); font-size: 24px; }
+.prep-boutons .btn { display: flex; flex: 0 0 auto; width: auto; min-height: 52px; min-width: 60px; padding: 0 12px; font-size: 17px; font-variant-numeric: tabular-nums; }
+@media (max-width: 400px) { .prep-ligne { grid-template-columns: 48px minmax(0, 1fr) auto; } .prep-boutons { grid-column: auto; } .prep-ligne b { overflow-wrap: anywhere; } }
+.prep-faites { margin-top: 12px; }
+.prep-faites summary { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--carte); box-shadow: inset 4px 0 0 var(--retour); font-weight: 700; cursor: pointer; list-style: none; }
+.prep-faites summary::-webkit-details-marker { display: none; }
+.prep-faites summary::after { content: "Afficher"; margin-left: auto; color: var(--gris); font-weight: 600; font-size: 15px; }
+.prep-faites[open] summary::after { content: "Masquer"; }
+.prep-faites[open] summary { margin-bottom: 10px; }
+.prep-depart { position: sticky; bottom: calc(104px + env(safe-area-inset-bottom)); z-index: 5; margin-top: 16px; }
+.prep-depart .t-action { min-height: 72px; box-shadow: 0 0 0 6px var(--fond); }
+@media (min-width: 960px) { .prep-depart { bottom: 16px; } }
+
+/* Compter une zone : celle qui vient d'être comptée porte une coche verte */
+.t-liste li.zone-faite .vignette.pic { color: var(--retour); }
+/* ===== Fin : terrain ===== */
+
+/* ===== Allègement : gestion ===== */
+/* « Plus » : l'avatar reste rond (il héritait de la mise en page du texte voisin), une seule grille pour le gérant et le responsable. */
+button.plus-moi > .avatar { flex: none; display: inline-flex; }
+.plus-moi + .plus-grille { margin-top: 16px; }
+
+/* Panneau du gérant : la tendance en gris neutre (au dépôt, une valeur qui baisse n'est pas une mauvaise nouvelle chez un loueur),
+   un voyant à zéro en gris, un voyant sans liste à ouvrir sans fond de bouton. */
+.pouls-delta.monte, .pouls-delta.descend { color: var(--panneau-gris); }
+.puce { align-content: start; }
+.puce.zero i { background: var(--panneau-gris); opacity: .55; }
+.puce.zero b { color: var(--panneau-gris); }
+.puce.inerte { background: none; box-shadow: inset 0 0 0 1px var(--panneau2); }
+
+/* Accueil : « À faire » en quatre lignes puis la suite, la note de la période, le bouton vers toutes les courbes */
+.btn.taches-suite { margin-top: 10px; width: 100%; }
+.w-ligne { margin: 0; font-size: 15px; color: var(--gris); }
+.w-ligne b { color: var(--encre); margin-right: 6px; }
+.w:has(> .w-ligne:only-child) { padding: 12px 16px; }
+.trio-note { margin-top: 10px; }
+.toutes-courbes { margin: 14px 0 0; }
+@media (min-width: 720px) { .toutes-courbes .btn { width: auto; } }
+
+/* Un seul titre par écran : sur téléphone l'en-tête le porte déjà, le grand titre reste lu par les lecteurs d'écran.
+   Sur ordinateur c'est le grand titre qui reste, et l'en-tête ne garde que le retour et la recherche. */
+@media (max-width: 959px) {
+  main.titre-double > h1 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (min-width: 960px) {
+  .app:has(main.titre-double) .haut-titre { visibility: hidden; }
+  /* Le cadenas est déjà en bas du menu de gauche. */
+  .haut .outils [data-act="verrouiller"] { display: none; }
+}
+
+/* Stock : « Nouvel article » à contour, sur la ligne de la recherche */
+.art-nouveau { flex: none; min-height: 48px; border-radius: 999px; padding: 0 16px; }
+.outils-liste:has(.art-nouveau) .recherche { flex-basis: 136px; }
+
+/* Connexion de la démo : un seul bouton plein, la visite guidée à contour sous le formulaire, des comptes en lignes basses,
+   les liens de la démonstration dans un volet replié. */
+.c-tete { margin-top: 28px; }
+.c-visite { margin-top: 12px; }
+.c-form .message:empty { min-height: 0; margin: 0 0 6px; }
+.c-comptes { gap: 6px; }
+.c-comptes button { grid-template-columns: 32px minmax(0, 1fr) 20px; min-height: 48px; padding: 6px 12px; }
+.c-comptes .avatar { width: 32px; height: 32px; font-size: 14px; }
+.c-comptes button > span:not(.avatar) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.c-comptes button small { font-size: 15px; }
+.c-demo summary { padding: 8px 0; }
+.c-options { margin-top: 10px; }
+.c-options summary { min-height: 56px; }
+.c-options .c-pied { margin: 0; padding: 0 0 12px; text-align: left; gap: 0; }
+.c-demo .w-note { margin: 0; padding: 0 0 12px; }
+
+/* Une phrase courte sous le titre, l'explication derrière le bouton rond « ? » */
+.aide { margin: 0 0 14px; color: var(--gris); }
+.aide summary { display: flex; align-items: center; gap: 10px; min-height: 44px; list-style: none; cursor: pointer; }
+.aide summary::-webkit-details-marker { display: none; }
+.aide summary i { flex: none; width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--trait-fort); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 15px; color: var(--encre); }
+.aide[open] summary i { background: var(--marque); color: var(--sur-marque); box-shadow: none; }
+.aide p { margin: 2px 0 0; font-size: 15px; }
+.graphe .aide.q { margin: 0 0 8px; }
+.graphe .aide.q summary { min-height: 44px; }
+h1 + .aide { margin-top: -4px; }
+
+/* Onglet « Équipe » de l'accueil : une ligne par personne. Fiche d'une personne : les sorties (imprimer, Excel) sous les chiffres. */
+.eq-lignes button.l { grid-template-columns: 40px minmax(0, 1fr) auto; min-height: 60px; }
+.eq-lignes .eq-n { text-align: right; font-size: 14px; font-weight: 700; color: var(--gris); white-space: nowrap; }
+.eq-lignes .eq-n b { display: inline; font-size: 17px; font-weight: 800; color: var(--encre); font-variant-numeric: tabular-nums; }
+.eq-lignes .eq-n small { display: block; font-weight: 600; }
+.eq-lignes .l.inactif .avatar, .eq-lignes .l.inactif > span:nth-child(2) b { opacity: .55; }
+.eq-sorties { margin: 0 0 14px; }
+
+/* Installation : l'offre et l'assistance d'abord, le détail et les fonctions à ajouter dans des volets */
+.inst-detail, .inst-ajout, .acces-volet { margin-top: 12px; }
+.inst-detail .module:last-child, .inst-ajout .module:last-child { border-bottom: 0; }
+.inst-ajout .sous { font-size: 14px; margin: 0 0 4px; }
+.inst-liste { list-style: none; margin: 0; padding: 0 16px; background: var(--carte); border-radius: 16px; }
+.inst-liste li + li { border-top: 1px solid var(--trait); }
+.inst-liste summary { display: flex; align-items: center; gap: 12px; min-height: 48px; font-weight: 700; list-style: none; cursor: pointer; }
+.inst-liste summary::-webkit-details-marker { display: none; }
+.inst-liste summary i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--retour); }
+.inst-liste summary::after { content: ""; flex: none; width: 8px; height: 8px; margin: 0 6px 4px auto; border-right: 2px solid var(--gris); border-bottom: 2px solid var(--gris); transform: rotate(45deg); }
+.inst-liste details[open] summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+.inst-liste p { margin: -4px 0 12px 22px; font-size: 14px; color: var(--gris); }
+.acces-volet .puces { color: var(--gris); font-size: 15px; }
+.docs-note { margin-top: 14px; }
+/* ===== Fin : gestion ===== */
