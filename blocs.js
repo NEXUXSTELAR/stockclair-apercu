@@ -69,7 +69,7 @@ function wAujourdhui() {
   const retours = aDesPrets() ? S.reservations.filter(r => r.statut === "Partie" && r.fin <= isoJour(Date.now() + JOUR_MS)).length : 0;
   const livr = S.commandes.filter(c => ["Envoyée", "Reçue en partie"].includes(c.statut)).length;
   const al = S.articles.filter(a => ["zero", "bas"].includes(etat(a).c)).length;
-  const case_ = (vers, coul, n, txt, sous) => `<button class="voyant" ${permis(vers) ? `data-aller="${vers}"` : "disabled"} style="--c:${coul}"><span class="voyant-n">${compte(n)}</span><b>${txt}</b><small>${sous}</small></button>`;
+  const case_ = (vers, coul, n, txt, sous) => `<button class="voyant${n ? "" : " zero"}" ${permis(vers) ? `data-aller="${vers}"` : "disabled"} style="--c:${coul}"><span class="voyant-n">${compte(n)}</span><b>${txt}</b><small>${sous}</small></button>`;
   return `<div class="voyants">
     ${actif("MO-RES") ? case_("preparer", "var(--sortie)", departs, "Départs", "aujourd'hui et demain") : case_("journal", "var(--sortie)", S.mouvements.filter(m => m.type === "Sortie" && isoJour(m.date) === auj).reduce((t, m) => t + m.qte, 0), V("sortiesMot"), "aujourd'hui")}
     ${aDesPrets() ? case_("recuperer", "var(--retour)", retours, "Retours", "attendus d'ici demain") : case_("journal", "var(--retour)", S.mouvements.filter(m => m.type === "Entrée" && isoJour(m.date) === auj).reduce((t, m) => t + m.qte, 0), "Entrées", "aujourd'hui")}

@@ -219,6 +219,7 @@ function animerChiffres(r) {
 }
 
 function rendre() {
+  if (FRANCE_SEULE && S.monnaie !== "EUR") { S.monnaie = "EUR"; sauver(); }
   if (typeof rafraichirPalette === "function") rafraichirPalette();
   const r = $("#racine");
   if (!session && invitation) r.innerHTML = vInvitation();
@@ -802,7 +803,7 @@ function dInstallation() {
     ${aAjouter.map(([k, m]) => `<div class="module"><b>${m.nom}</b><button class="btn petit" data-devis="${k}">Demander un devis</button><p>${detail(m)}.${prix ? ` Environ ${fmt(m[unite])} HT, une fois.` : ""}</p></div>`).join("")}</details>` : ""}
   <h2>Réglages</h2>
   <div class="module"><b>Vos coordonnées sur les documents</b><button class="btn petit" data-act="coordonnees">Modifier</button><p>${S.entreprise && S.entreprise.nom ? esc(S.entreprise.nom) : "Nom, adresse, téléphone et logo en haut des bons et des factures."}</p></div>
-  <div class="module"><label for="monnaie"><b>Monnaie des montants</b></label><select id="monnaie" data-monnaie><option value="EUR" ${S.monnaie === "EUR" ? "selected" : ""}>Euro</option><option value="XOF" ${S.monnaie === "XOF" ? "selected" : ""}>Franc CFA</option></select><p>Pour les prix, les pertes et les factures.</p></div>`;
+  ${FRANCE_SEULE ? "" : `<div class="module"><label for="monnaie"><b>Monnaie des montants</b></label><select id="monnaie" data-monnaie><option value="EUR" ${S.monnaie === "EUR" ? "selected" : ""}>Euro</option><option value="XOF" ${S.monnaie === "XOF" ? "selected" : ""}>Franc CFA</option></select><p>Pour les prix, les pertes et les factures.</p></div>`}`;
 }
 // Un ajout de module est une nouvelle fonction : toujours sur devis, jamais dans l'assistance incluse.
 function feuilleIntervention(module) {
@@ -1201,7 +1202,7 @@ function lienProfond() { const id = code(location.hash); if (id && art(id)) vue 
   adresseGroupe(q);
   // Une démo d'essai ouverte (essai.js) n'est pas remplacée ici : essai.js la met de côté avec ses gestes avant de changer de métier
   if (propre(METIERS, q.get("metier")) && !S.monEssai && (S.variante || S.metier || "loueur") !== q.get("metier")) { const garder = { monnaie: S.monnaie }; S = construireDemo(q.get("metier")); Object.assign(S, garder); sauver(); }
-  if (q.get("monnaie") === "XOF" || q.get("monnaie") === "EUR") { S.monnaie = q.get("monnaie"); sauver(); }
+  if (!FRANCE_SEULE && (q.get("monnaie") === "XOF" || q.get("monnaie") === "EUR")) { S.monnaie = q.get("monnaie"); sauver(); }
   // En démo, un lien direct ouvre la session de la première personne active du profil, sans mot de passe.
   // En production, ces liens n'existent pas : chacun se connecte avec son identifiant et son mot de passe.
   const u = PROFILS[q.get("profil")] && S.equipe.find(x => x.role === q.get("profil") && x.actif);

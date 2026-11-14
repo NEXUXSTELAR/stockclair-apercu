@@ -10,6 +10,11 @@ const ESPACE = (() => {
   catch (e) { return demande; }
 })();
 
+// France seulement pour l'instant : l'appli n'affiche que des euros et ne propose ni le franc CFA ni le Sénégal.
+// Tout le reste (prix en FCFA, devis sénégalais, relais) est gardé dans le code pour le jour où l'on rouvre.
+// « ?pays=tous » lève le réglage le temps d'une page, pour nos propres essais.
+const FRANCE_SEULE = new URLSearchParams(location.search).get("pays") !== "tous";
+
 const CATALOGUE = {
   "MO-PRET": { nom: "Prêts et retours", detail: "Départ chez le client, retour, manquants à refacturer", eur: 290, xof: 140000 },
   "MO-RES":  { nom: "Réservations et préparation", detail: "Disponibilité à une date, liste de préparation scannée, facture de casse", eur: 490, xof: 230000, pack: true },
