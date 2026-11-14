@@ -53,8 +53,8 @@ function versBloc(k) {
   if (b) return b.scrollIntoView({ behavior: mouvementReduit() ? "auto" : "smooth", block: "center" });
   if (k === "taches") feuilleTaches();
 }
-function feuilleTaches() {
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="À faire">${wTaches(true)}
+function feuilleTaches(filtre) {
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="À faire">${wTaches(true, typeof filtre === "function" ? filtre : null)}
     <div class="valider" style="grid-template-columns:1fr"><button class="btn" data-x>Fermer</button></div></div>`);
   f.querySelector("[data-x]").onclick = () => f.remove();
   // Les tâches de la feuille se branchent comme celles de l'accueil ; la feuille se ferme dès qu'on en touche une.

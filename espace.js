@@ -383,11 +383,11 @@ const copieP = x => JSON.parse(JSON.stringify(x));
 function clientEnReglage() {
   const c = P_.enReglage && clientP(P_.enReglage);
   if (!c || c.metier !== metierDemo() || (S.entreprise || {}).nom !== c.nom) { if (P_.enReglage) { delete P_.enReglage; sauverP(); } return null; }
-  const a = { metier: c.metier, taille: S.taille || "bureau", detail: S.detail || "complet", config: config() }, avant = c.appli || {};
-  if (JSON.stringify(a) !== JSON.stringify({ metier: avant.metier, taille: avant.taille, detail: avant.detail, config: avant.config })) { c.appli = Object.assign(copieP(a), { le: Date.now() }); sauverP(); }
+  const a = { metier: c.metier, taille: S.taille || "bureau", detail: S.detail || "complet", presentation: presentation(), config: config() }, avant = c.appli || {};
+  if (JSON.stringify(a) !== JSON.stringify({ metier: avant.metier, taille: avant.taille, detail: avant.detail, presentation: avant.presentation || "essentiel", config: avant.config })) { c.appli = Object.assign(copieP(a), { le: Date.now() }); sauverP(); }
   return c;
 }
-function appliquerAppliP(a) { S.taille = a.taille; S.detail = a.detail; S.config = copieP(a.config); }
+function appliquerAppliP(a) { S.taille = a.taille; S.detail = a.detail; S.presentation = a.presentation || "essentiel"; S.config = copieP(a.config); }
 // Dans la démo, l'appli prend le métier du client, les modules de son offre, son nom, sa monnaie, et son réglage s'il en a déjà un
 function reglerAppliP(id) {
   const c = clientP(id); if (!c) return;

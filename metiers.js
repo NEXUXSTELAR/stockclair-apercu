@@ -388,7 +388,13 @@ function semerComptages(st) {
   return st;
 }
 // regler (facultatif) : ajuste l'état avant que son historique soit fabriqué. Sert aux établissements d'un groupe (groupe.js).
+// La présentation de l'accueil (config.js) est un réglage d'installation : elle suit l'entreprise quand la démo est refaite.
 function construireDemo(m, regler) {
+  const st = fabriquerDemo(m, regler);
+  try { if (S && S.presentation) st.presentation = S.presentation; } catch (e) { /* premier chargement : pas encore d'état */ }
+  return st;
+}
+function fabriquerDemo(m, regler) {
   if (!METIERS[m] || m === "loueur") { const s0 = SEED(); if (regler) regler(s0); const s = seedMouvements(s0); s.metier = "loueur"; return semerComptages(s); }
   if (METIERS[m].base === "loueur") return semerComptages(habiller(seedMouvements(SEED()), METIERS[m], m));
   const d = METIERS[m], st = SEED();

@@ -37,6 +37,7 @@ const I = {
   equipe: P('<circle cx="17" cy="15" r="6"/><circle cx="33" cy="17" r="5"/><path d="M5 40v-4a10 10 0 0 1 20 0v4M28 40v-3a8 8 0 0 1 15-4"/>'),
   effacer: P('<path d="M17 10h23a2 2 0 0 1 2 2v24a2 2 0 0 1-2 2H17L5 24z"/><path d="m22 18 12 12M34 18 22 30"/>'),
   fleche: P('<path d="M10 24h28M28 14l10 10-10 10"/>'),
+  chevron: P('<path d="M18 10l14 14-14 14"/>'),
   precedent: P('<path d="M38 24H10M20 14 10 24l10 10"/>'),
   maison: P('<path d="M6 22 24 7l18 15"/><path d="M11 18v22h26V18M20 40V28h8v12"/>'),
   grille: P('<rect x="7" y="7" width="14" height="14" rx="3"/><rect x="27" y="7" width="14" height="14" rx="3"/><rect x="7" y="27" width="14" height="14" rx="3"/><rect x="27" y="27" width="14" height="14" rx="3"/>'),
@@ -319,7 +320,7 @@ function deverrouiller(f) {
 const moi = () => (session && S.equipe.find(x => x.id === session.uid)) || { id: "", nom: session ? session.nom : "", role: session ? session.profil : "terrain", poste: "" };
 function ouvrirSession(u) {
   session = { uid: u.id, nom: u.nom, profil: u.role, admin: !!u.admin };
-  verrouille = false; pile = []; entree = true; toutVoir = false; ongletAccueil = "jour";
+  verrouille = false; pile = []; entree = true; toutVoir = false; ongletAccueil = "jour"; tableauEntier = false;
   vue = { nom: vueDepart(u.role) }; lienProfond(); activite(); rendre(); window.scrollTo(0, 0);
   // Appui long sur l'icône de l'appli, « Scanner une étiquette » : la caméra s'ouvre dès l'entrée.
   if (raccourciScanner) { raccourciScanner = false; camera(); }
@@ -436,6 +437,7 @@ function feuillePlus() {
 // Au premier coup d'œil, l'essentiel du jour. Les courbes et l'équipe attendent dans leur onglet.
 let ongletAccueil = "jour";
 function vAccueil() {
+  if (accueilEssentiel()) return vEssentiel();
   const u = moi(), h = new Date().getHours();
   const liste = accueilAvecControles(cfg().accueil).filter(([k]) => WIDGETS[k] && (!WIDGETS[k].si || WIDGETS[k].si()));
   const chiffres = liste.filter(([k]) => WIDGETS[k].o === "chiffres"), jour = liste.filter(([k]) => WIDGETS[k].o !== "chiffres");
@@ -453,8 +455,82 @@ function vAccueil() {
   const blocs = !deux ? liste : ongletAccueil === "chiffres" ? chiffres.filter(([k]) => garde.has(k)).sort((a, b) => (b[0] === "trio") - (a[0] === "trio")).concat(resume) : jour.filter(([k]) => k !== "resume");
   const corps = ongletAccueil === "equipe" ? ongletEquipe() : bento(blocs, window.innerWidth < 720 && !toutVoir ? 6 : 0)
     + (versAnalyses && ongletAccueil === "chiffres" ? `<p class="toutes-courbes"><button class="btn" data-racine="analyses">${I.releve}Toutes les courbes</button></p>` : "");
-  return `<div class="salut"><p class="date">${dateLongue(aujourdHui())}</p><h1>${h >= 18 || h < 5 ? "Bonsoir" : "Bonjour"} ${esc(u.nom)}</h1></div>
+  // Ouvert depuis l'accueil essentiel par « Voir tout le tableau de bord » : un lien ramène à l'essentiel.
+  return `${tableauEntier && roleEssentiel() ? `<p class="es-retour"><button class="es-lien" data-act="essentiel">${I.precedent}Revenir à l'essentiel</button></p>` : ""}<div class="salut"><p class="date">${dateLongue(aujourdHui())}</p><h1>${h >= 18 || h < 5 ? "Bonsoir" : "Bonjour"} ${esc(u.nom)}</h1></div>
   ${onglets.length ? `<div class="segments onglets-accueil" role="group" aria-label="Partie de l'accueil">${onglets.map(([k, t]) => `<button data-onglet-accueil="${k}" aria-pressed="${ongletAccueil === k}">${t}</button>`).join("")}</div>` : ""}${corps}`;
+}
+/* ---------------- Accueil essentiel du gérant et du responsable ----------------
+   Un seul chiffre en grand, quatre raccourcis ronds, une carte de quatre lignes au plus, sur fond uni et sans onglets.
+   Cinq chiffres au plus sur l'écran : la phrase d'état écrit donc son nombre en lettres.
+   Rien n'est retiré de l'appli : « Voir tout le tableau de bord » rouvre les onglets, pour cette visite seulement.
+   Les nombres viennent des calculs existants : taches(), et les voyants « à commander » et « à décider » du panneau de pilotage. */
+let tableauEntier = false;
+const roleEssentiel = () => !!session && ["direction", "bureau"].includes(session.profil) && presentation() === "essentiel";
+const accueilEssentiel = () => roleEssentiel() && !tableauEntier;
+const EN_LETTRES = ["Aucune", "Une", "Deux", "Trois", "Quatre", "Cinq", "Six", "Sept", "Huit", "Neuf", "Dix", "Onze", "Douze"];
+const phraseEtat = (n, accord) => !n ? "Tout est à jour." : `${EN_LETTRES[n] || n} ${n > 1 ? "choses demandent" : "chose demande"} ${accord ? "votre accord" : "un regard"}.`;
+const nbEs = (n, un, plusieurs) => `${n.toLocaleString("fr-FR")} ${n > 1 ? plusieurs : un}`;
+// Le chiffre du gérant : la valeur du stock, et dessous ce qu'elle laisse de côté (un loueur) ou ce qui en est sorti (les autres métiers).
+function heroGerant() {
+  const prix = droit("prix"), loueur = (S.metier || "loueur") === "loueur";
+  const pieces = S.articles.reduce((t, a) => t + Math.max(0, stock(a.id)), 0), chiffre = prix ? argent(valeurStock()) : pieces.toLocaleString("fr-FR") + " pièces";
+  let sens;
+  if (loueur && aDesPrets()) {
+    const chez = dehors().reduce((t, x) => t + x.qte, 0), ou = estLoueur() ? "chez vos clients" : (V("chez") || "dehors").toLowerCase().replace(/^prêtés$/, "prêtées");
+    sens = chez ? `${nbEs(chez, "pièce de plus est", "pièces de plus sont")} ${ou}` : "Tout votre matériel est au dépôt";
+  } else {
+    const l = S.mouvements.filter(m => (m.type === "Prêt" || m.type === "Sortie") && m.date >= Date.now() - 30 * J_MS);
+    const n = prix ? l.reduce((t, m) => t + valeurM(m), 0) : l.reduce((t, m) => t + m.qte, 0);
+    sens = n > 0 ? `${V("sortiesMot") || "Sorti"} depuis un mois : ${prix ? argent(Math.round(n)) : nbEs(n, "pièce", "pièces")}` : "Rien n'est sorti depuis un mois";
+  }
+  return `<div class="es-hero"><small>${loueur ? "Valeur du matériel au dépôt" : "Valeur du stock"}</small><b class="es-chiffre${chiffre.length > 11 ? " es-long" : ""}">${chiffre}</b><p>${esc(sens)}</p></div>`;
+}
+const heroResponsable = n => `<div class="es-hero"><small>Aujourd'hui</small>${n ? `<b class="es-chiffre">${n}<span> ${n > 1 ? "choses" : "chose"} à faire</span></b>` : `<b class="es-chiffre es-calme">Rien à faire pour l'instant</b>`}</div>`;
+// Quatre raccourcis, parmi les écrans que le rôle a le droit d'ouvrir. S'il en manque un, le suivant de la liste prend sa place.
+function raccourcisEssentiel() {
+  const gerant = session.profil === "direction", paire = (S.metier || "loueur") === "loueur" ? ["reservations", "commandes"] : ["commandes", "reservations"];
+  const voulus = gerant ? ["materiel", paire.find(k => permis(k)), "analyses", S.taille === "seul" ? "depot" : "equipe", "docs", "journal", "equipe", "clients", "depot"]
+    : ["materiel", paire.find(k => permis(k)), "journal", "docs", "analyses", "clients", "equipe", "depot"];
+  const l = [...new Set(voulus.filter(k => k && permis(k)))].slice(0, 4), court = window.innerWidth < 360;
+  return l.length ? `<nav class="es-raccourcis" aria-label="Raccourcis">${l.map(k => `<button data-racine="${k}"><span class="es-rond">${I[SECTIONS[k].i]}</span><span>${k === "analyses" ? "Chiffres" : esc(court ? titreCourt(k) : titreSection(k))}</span></button>`).join("")}</nav>` : "";
+}
+// Gérant : trois sujets au plus. Une ligne n'existe que si son nombre n'est pas zéro.
+function lignesGerant() {
+  const l = [], rupt = S.articles.filter(a => ["zero", "bas"].includes(etat(a).c)).length;
+  const dec = droit("valider") && actif("MO-CMD") ? S.commandes.filter(c => c.statut === "À valider").length : 0;
+  const faire = taches().filter(x => !x.bouton), depot = faire.every(x => ["sortie", "retour", "compter", "alerte"].includes(x.c));
+  if (rupt) l.push({ c: "alerte", t: nbEs(rupt, "objet est à commander", "objets sont à commander"), a: permis("materiel") ? `data-aller="materiel" data-arg="alerte"` : "" });
+  if (dec) l.push({ c: "marque", n: dec, accord: true, t: nbEs(dec, "commande attend votre accord", "commandes attendent votre accord"), a: permis("commandes") ? `data-aller="commandes"` : `data-act="aDecider"` });
+  if (faire.length) l.push({ c: "compter", t: nbEs(faire.length, "chose est à faire", "choses sont à faire") + (depot ? " au dépôt" : ""), a: `data-act="tachesAFaire"` });
+  return l;
+}
+// Responsable : ses tâches, une ligne chacune. Une commande à valider ouvre les commandes (ou la feuille « À décider »).
+const lignesResponsable = () => taches().map(x => ({ c: x.c, t: x.t, a: x.a || (permis("commandes") ? `data-aller="commandes"` : `data-act="aDecider"`) }));
+const ligneEs = x => `<li>${x.a ? `<button class="es-ligne" ${x.a}>` : `<div class="es-ligne">`}<i style="--c:var(--${x.c})"></i><span>${esc(x.t)}</span>${x.a ? `<span class="chev">${I.chevron}</span></button>` : `</div>`}</li>`;
+function vEssentiel() {
+  const u = moi(), h = new Date().getHours(), gerant = session.profil === "direction";
+  let lignes = gerant ? lignesGerant() : lignesResponsable(), suite = "";
+  const accord = gerant && lignes.length === 1 && lignes[0].accord, n = accord ? lignes[0].n : lignes.length;
+  if (!gerant && n > TACHES_VUES) {
+    const reste = n - TACHES_VUES; lignes = lignes.slice(0, TACHES_VUES);
+    suite = `<li><button class="es-ligne es-suite" data-act="tachesToutes"><span>${reste > 1 ? `Voir les ${reste} autres` : "Voir la dernière"}</span><span class="chev">${I.chevron}</span></button></li>`;
+  }
+  return `<div class="essentiel">
+  <div class="salut"><p class="date">${dateLongue(aujourdHui())}</p><h1>${h >= 18 || h < 5 ? "Bonsoir" : "Bonjour"} ${esc(u.nom)}</h1><p class="es-etat">${phraseEtat(n, accord)}</p></div>
+  ${gerant ? heroGerant() : heroResponsable(n)}
+  ${raccourcisEssentiel()}
+  <section class="es-carte" aria-labelledby="es-titre"><h2 id="es-titre">${gerant ? "À voir aujourd'hui" : "À faire"}</h2>
+    ${lignes.length ? `<ul class="es-lignes">${lignes.map(ligneEs).join("")}${suite}</ul>` : `<p class="es-rien">Rien à signaler.</p>`}</section>
+  <p class="es-pied"><button class="es-lien" data-act="tableauEntier">Voir tout le tableau de bord</button></p>
+  </div>`;
+}
+// « À décider » dans une feuille, pour qui valide les commandes sans avoir l'écran Commandes.
+function feuilleDecider() {
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="À décider">${wDecider() || `<p class="vide">Rien n'attend votre accord.</p>`}
+    <div class="valider" style="grid-template-columns:1fr"><button class="btn" data-x>Fermer</button></div></div>`);
+  f.querySelector("[data-x]").onclick = () => f.remove();
+  brancher();
+  f.querySelectorAll("[data-valider]").forEach(b => { const suite = b.onclick; b.onclick = e => { f.remove(); if (suite) suite.call(b, e); }; });
 }
 // Les gestes du magasinier, ouverts à toute l'équipe.
 const vDepot = () => `<h1>Au dépôt</h1>${wScan()}${wActions()}`;
@@ -1168,8 +1244,13 @@ const ACTIONS = {
   voirDevis: () => feuilleDevis(),
   metiers: () => feuilleMetiers(),
   voirPlus: () => { toutVoir = true; rendre(); },
+  tableauEntier: () => { tableauEntier = true; ongletAccueil = "jour"; entree = true; toutVoir = false; rendre(); window.scrollTo(0, 0); },
+  essentiel: () => { tableauEntier = false; entree = true; rendre(); window.scrollTo(0, 0); },
+  aDecider: () => feuilleDecider(),
+  tachesAFaire: () => feuilleTaches(x => !x.bouton),
+  tachesToutes: () => feuilleTaches(),
   retour: () => { const p = pile.pop(); vue = p || { nom: "accueil" }; rendre(); window.scrollTo(0, 0); },
-  sortir: garderMessage => { session = null; verrouille = false; clearTimeout(minuteur); if (garderMessage !== true) msgConnexion = ""; vue = { nom: "accueil" }; pile = []; $$(".feuille").forEach(f => f.remove()); rendre(); window.scrollTo(0, 0); },
+  sortir: garderMessage => { session = null; verrouille = false; clearTimeout(minuteur); if (garderMessage !== true) msgConnexion = ""; vue = { nom: "accueil" }; pile = []; tableauEntier = false; $$(".feuille").forEach(f => f.remove()); rendre(); window.scrollTo(0, 0); },
   verrouiller: () => { verrouille = true; msgConnexion = ""; clearTimeout(minuteur); rendre(); },
   reglages: () => feuilleReglages(),
   ecranAccueil: () => feuilleEcranAccueil(),
@@ -1203,6 +1284,8 @@ function lienProfond() { const id = code(location.hash); if (id && art(id)) vue 
   // Une démo d'essai ouverte (essai.js) n'est pas remplacée ici : essai.js la met de côté avec ses gestes avant de changer de métier
   if (propre(METIERS, q.get("metier")) && !S.monEssai && (S.variante || S.metier || "loueur") !== q.get("metier")) { const garder = { monnaie: S.monnaie }; S = construireDemo(q.get("metier")); Object.assign(S, garder); sauver(); }
   if (!FRANCE_SEULE && (q.get("monnaie") === "XOF" || q.get("monnaie") === "EUR")) { S.monnaie = q.get("monnaie"); sauver(); }
+  // ?presentation=complet|essentiel fixe la présentation de l'accueil (config.js), pour les essais et les scripts de capture.
+  if (PRESENTATIONS[q.get("presentation")]) reglerPresentation(q.get("presentation"));
   // En démo, un lien direct ouvre la session de la première personne active du profil, sans mot de passe.
   // En production, ces liens n'existent pas : chacun se connecte avec son identifiant et son mot de passe.
   const u = PROFILS[q.get("profil")] && S.equipe.find(x => x.role === q.get("profil") && x.actif);

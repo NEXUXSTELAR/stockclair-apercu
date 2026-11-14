@@ -210,7 +210,7 @@ function ajouterPhotos(bid, fichiers) {
 let tour = null;
 function connecterRole(role) {
   const u = S.equipe.find(x => x.role === role && x.actif);
-  session = { uid: u.id, nom: u.nom, profil: u.role, admin: !!u.admin }; verrouille = false; installateur = false; pile = [];
+  session = { uid: u.id, nom: u.nom, profil: u.role, admin: !!u.admin }; verrouille = false; installateur = false; pile = []; tableauEntier = false;
 }
 const ETAPES = [
   { t: "Ousmane, magasinier, prépare le mariage de samedi. La réservation est devenue sa liste de préparation.", f: () => { connecterRole("terrain"); aller("preparation", "R-001"); } },
@@ -226,7 +226,7 @@ const ETAPES = [
       aller("bon", creerBon({ type: "retour", evenement: r.nom, date: Date.now(), lignes: rendus, manquants: [["ART-0001", 6]] })); } },
   { t: "La facture de casse est prête à envoyer : plus de dispute sur la caution.", f: () => aller("facture", S.reservations.find(x => x.id === "R-001").nom) },
   { t: "Karim, au bureau, reçoit un appel : « Vous avez 350 chaises dans quinze jours ? » Il choisit la date et voit tout de suite combien sont libres, en tenant compte des autres réservations.", f: () => { connecterRole("bureau"); const d = isoJour(Date.now() + 15 * JOUR_MS); rechercheDispo = { d1: d, d2: d }; aller("reservations"); } },
-  { t: "Awa, la gérante, pilote : valeur du parc et sa tendance, part louée, pertes et ce qu'elle récupère.", f: () => { connecterRole("direction"); aller("accueil", null, true); } },
+  { get t() { return presentation() === "essentiel" ? "Awa, la gérante, ouvre son accueil : la valeur de son matériel, puis ce qui demande son accord ou un regard aujourd'hui. Les courbes et l'équipe sont à un geste." : "Awa, la gérante, pilote : valeur du parc et sa tendance, part louée, pertes et ce qu'elle récupère."; }, f: () => { connecterRole("direction"); aller("accueil", null, true); } },
   ESPACE && { t: "Tout se règle pour votre entreprise : taille de l'équipe, écrans, blocs, droits de chacun. C'est nous qui le faisons, d'après votre devis.", f: () => { session = null; installateur = true; vueE = { nom: "reglages", arg: null }; entree = true; rendre(); window.scrollTo(0, 0); } },
 ];
 function demarrerTour() {

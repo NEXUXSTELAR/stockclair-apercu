@@ -104,6 +104,21 @@ const TAILLES_EQUIPE = {
   petite: { nom: "Petite équipe", detail: "Un patron et des magasiniers : le patron commande et réserve" },
   bureau: { nom: "Avec un bureau", detail: "Magasiniers, un responsable au bureau, une direction" },
 };
+/* Présentation de l'accueil du gérant et du responsable : « L'essentiel » (un chiffre, quatre raccourcis, ce qui est à voir aujourd'hui)
+   ou « Tout » (les onglets et tous les blocs). Réglée ici par l'installateur, jamais par le client. Sans réglage : l'essentiel.
+   Le magasinier et le chauffeur gardent leur accueil dans les deux cas. */
+const PRESENTATIONS = {
+  essentiel: { nom: "L'essentiel", detail: "Un chiffre, quatre raccourcis, ce qui est à voir aujourd'hui. Le tableau de bord complet reste à un geste" },
+  complet: { nom: "Tout", detail: "Les onglets Aujourd'hui, Chiffres et Équipe, avec tous les blocs choisis plus bas" },
+};
+const presentation = () => S.presentation === "complet" ? "complet" : "essentiel";
+// Dans un groupe, le réglage vaut pour tous les établissements.
+function reglerPresentation(v) {
+  if (!PRESENTATIONS[v]) return;
+  S.presentation = v;
+  if (groupeActif()) { Object.values(G.etats).forEach(s => { if (s) s.presentation = v; }); persisterGroupe(); }
+  sauver();
+}
 // Les rôles présents : ceux de l'équipe active, plus ceux que la taille prévoit
 const rolesUtiles = () => ["terrain", "chauffeur", "bureau", "direction"].filter(r => S.equipe.some(u => u.role === r) && !(S.taille === "seul" && r !== "direction") && !(S.taille === "petite" && r === "bureau"));
 function config() {
@@ -220,13 +235,13 @@ function taches() {
 // Sur l'accueil : quatre tâches, puis « Voir les n autres ». La liste entière s'ouvre d'un geste (et dans la feuille du panneau de pilotage).
 const TACHES_VUES = 4;
 let tachesToutes = false;
-function wTaches(tout) {
+function wTaches(tout, filtre) {
   if (entree) tachesToutes = false;
   // Le chauffeur voit sa tournée : les tâches du dépôt (préparer, réceptionner, compter) ne sont pas les siennes. Sa carte d'arrêt dit ce qui reste à charger.
   if (!tout && session && session.profil === "chauffeur") return "";
   // Une tâche qui a déjà son bloc sur le même écran (« À utiliser en premier ») n'est pas écrite deux fois.
   const blocDates = !tout && vue.nom === "accueil" && cfg().accueil.some(([k]) => k === "peremption");
-  const l = taches().filter(x => !(x.k === "dlc" && blocDates));
+  const l = taches().filter(x => !(x.k === "dlc" && blocDates) && (!filtre || filtre(x)));
   const vus = tout || tachesToutes || l.length <= TACHES_VUES + 1 ? l : l.slice(0, TACHES_VUES), reste = l.length - vus.length;
   return `<h3 class="w-titre">À faire ${l.length ? `<span class="compte">${l.length}</span>` : ""}</h3>
   ${l.length ? `<ul class="taches">${vus.map(x => {
@@ -350,6 +365,9 @@ function vInstallateur(dansEspace) {
   <h2>Taille de l'équipe</h2>
   <p class="sous">Un modèle règle d'un coup les rôles, les blocs et les droits. On ajuste ensuite les détails plus bas.</p>
   <div class="tailles">${Object.entries(TAILLES_EQUIPE).map(([k, t]) => `<button data-taille="${k}" aria-pressed="${(S.taille || "bureau") === k}"><b>${t.nom}</b><small>${t.detail}</small></button>`).join("")}</div>
+  <h2>Présentation de l'accueil</h2>
+  <p class="sous">Ce que le gérant et le responsable voient en ouvrant l'appli. Le magasinier et le chauffeur gardent leur accueil.</p>
+  <div class="tailles deux">${Object.entries(PRESENTATIONS).map(([k, t]) => `<button data-presentation="${k}" aria-pressed="${presentation() === k}"><b>${t.nom}</b><small>${t.detail}</small></button>`).join("")}</div>
   <h2>Niveau de détail</h2>
   <p class="sous">Ce que les documents demandent et affichent. Le dépôt n'a jamais plus à remplir : c'est le bureau qui complète.</p>
   <div class="tailles">${Object.entries(NIVEAUX).map(([k, n]) => `<button data-niveau="${k}" aria-pressed="${(S.detail || "complet") === k}"><b>${n.nom}</b><small>${n.detail}</small></button>`).join("")}</div>
@@ -400,5 +418,6 @@ function brancherConfig() {
   $$("[data-w-retirer]").forEach(b => b.onclick = () => { const [cle, i] = b.dataset.wRetirer.split("|"); c()[cle].splice(+i, 1); sauver(); rendre(); });
   $$("[data-w-ajouter]").forEach(s => s.onchange = () => { if (!s.value) return; c()[s.dataset.wAjouter].push([s.value, WIDGETS[s.value].tailles.includes("m") ? "m" : WIDGETS[s.value].tailles[0]]); sauver(); rendre(); });
   $$("[data-droit]").forEach(x => x.onchange = () => { c().droits[x.dataset.droit] = x.checked ? 1 : 0; sauver(); rendre(); });
+  $$("[data-presentation]").forEach(b => b.onclick = () => { reglerPresentation(b.dataset.presentation); rendre(); toast(`Présentation de l'accueil : ${PRESENTATIONS[presentation()].nom}.`); });
   $$("[data-apercu]").forEach(b => b.onclick = () => ouvrirSession(S.equipe.find(u => u.id === b.dataset.apercu)));
 }
