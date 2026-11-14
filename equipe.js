@@ -16,17 +16,19 @@ const voitConnexions = u => u.id === session.uid || session.profil === "directio
 
 /* ---------------- Les gestes d'une personne ---------------- */
 // Un geste porte l'identifiant interne de la personne depuis cette version ; les lignes plus anciennes portent son prénom.
-const gesteDe = (m, u) => m.uid ? m.uid === u.id : m.qui === u.nom;
+// Une personne arrivée depuis (elle porte sa date d'arrivée) ne reçoit jamais les anciens gestes d'un homonyme.
+const gesteDe = (m, u) => m.uid ? m.uid === u.id : m.qui === u.nom && (!u.depuis || m.date >= u.depuis);
 function gestesDe(u, jours) {
   const annules = new Set(S.mouvements.filter(m => m.annule).map(m => m.annule));
-  const depuis = jours ? Date.now() - jours * 86400000 : 0;
-  return S.mouvements.filter(m => gesteDe(m, u) && m.date >= depuis && !m.annule && !annules.has(m.id)).sort((a, b) => b.date - a.date);
+  // La période compte en jours entiers, aujourd'hui compris, comme les colonnes du graphique. L'inventaire de départ n'est pas un geste du quotidien.
+  const depuis = jours ? jourDe(Date.now()) - (jours - 1) * 86400000 : 0;
+  return S.mouvements.filter(m => gesteDe(m, u) && m.date >= depuis && !m.annule && !annules.has(m.id) && m.type !== "Inventaire initial").sort((a, b) => b.date - a.date);
 }
 const FAMILLES = {
   sortie: { t: "Sorties", c: "sortie", types: ["Prêt", "Sortie", "Envoi"] },
-  retour: { t: "Retours et entrées", c: "retour", types: ["Retour", "Entrée", "Retour réparation", "Inventaire initial"] },
-  compter: { t: "Comptages et contrôles", c: "compter", types: ["Ajustement", "Contrôle", "Transfert", "Fiche"] },
-  perte: { t: "Pertes signalées", c: "alerte", types: ["Perte", "Réparation"] },
+  retour: { t: "Retours et entrées", c: "retour", types: ["Retour", "Entrée"] },
+  compter: { t: "Comptages et autres gestes", c: "compter", types: ["Ajustement", "Contrôle", "Transfert", "Fiche", "Réparation", "Retour réparation", "Inventaire initial"] },
+  perte: { t: "Pertes signalées", c: "alerte", types: ["Perte"] },
 };
 const familleDe = m => Object.keys(FAMILLES).find(k => FAMILLES[k].types.includes(m.type)) || "compter";
 const MOTS_GESTES = { "Prêt": "Sortie", "Sortie": "Sortie", "Envoi": "Envoi à un autre établissement", "Retour": "Retour", "Entrée": "Réception", "Retour réparation": "Retour de l'atelier", "Inventaire initial": "Inventaire de départ", "Ajustement": "Comptage corrigé", "Contrôle": "Contrôle fait", "Transfert": "Déplacement", "Fiche": "Fiche modifiée", "Perte": "Perte signalée", "Réparation": "Envoi à l'atelier" };
@@ -52,6 +54,9 @@ const ilYA = t => {
   return j <= 0 ? "aujourd'hui à " + h : j === 1 ? "hier à " + h : j < 7 ? "il y a " + j + " jours" : "le " + new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
 const etatAcces = u => !u.actif ? "accès retiré" : !u.empreinte ? "invitation en attente" : "";
+const pl = (n, un, plusieurs) => `${n.toLocaleString("fr-FR")} ${n > 1 ? plusieurs : un}`;
+// Le poste proposé pour un rôle : celui que porte déjà quelqu'un du même rôle dans cette entreprise, sinon le nom du rôle.
+const posteParDefaut = role => (S.equipe.find(x => x.role === role && x.poste) || {}).poste || PROFILS[role].nom;
 
 /* ---------------- Les cartes de l'équipe ---------------- */
 function miniBarres(cases) {
@@ -61,8 +66,8 @@ function miniBarres(cases) {
 function carteEquipe(u) {
   const sept = gestesDe(u, 7), d = dernierGeste(u), e = etatAcces(u), moiMeme = u.id === session.uid;
   return `<button class="eq-carte ${u.actif ? "" : "inactif"}" data-personne="${u.id}">${avatar(u, true)}
-    <span class="eq-nom"><b>${esc(u.nom)}${moiMeme ? ` <span class="statut">vous</span>` : ""}</b><small>${esc(u.poste || PROFILS[u.role].nom)}</small>${e ? `<small><span class="statut ${u.actif ? "s-confirme" : ""}">${e}</span></small>` : ""}</span>
-    <span class="eq-bas"><span><b>${sept.length}</b> geste${sept.length > 1 ? "s" : ""} sur 7 jours<small>${d ? "Dernier geste " + ilYA(d.date) : "Aucun geste enregistré"}</small></span>${miniBarres(parJour(sept, 7))}</span>
+    <span class="eq-nom"><b>${esc(u.nom)}${moiMeme ? ` <span class="statut">vous</span>` : ""}</b><small>${esc(u.poste || PROFILS[u.role].nom)}</small>${e ? `<small><span class="statut">${e}</span></small>` : ""}</span>
+    <span class="eq-bas"><span><b>${sept.length}</b> geste${sept.length > 1 ? "s" : ""} en 7 jours<small>${d ? "Dernier geste " + ilYA(d.date) : "Aucun geste enregistré"}</small></span>${miniBarres(parJour(sept, 7))}</span>
   </button>`;
 }
 // Les fiches que la personne connectée a le droit d'ouvrir, la sienne d'abord.
@@ -93,7 +98,7 @@ function vEquipe() {
   if (!admin) ongletEq = "fiches";
   const attente = S.equipe.filter(u => u.actif && !u.empreinte).length;
   return `<h1>Équipe</h1>
-  <p class="sous">${session.profil === "direction" ? "La fiche de chacun, avec ses gestes de stock : qui a fait quoi, et quand." : "Les fiches des personnes du dépôt et de la route, avec leurs gestes de stock."}</p>
+  <p class="sous">${session.profil === "direction" ? "La fiche de chacun, avec ses gestes de stock : qui a fait quoi, et quand." : fichesVisibles().length ? "Les fiches des personnes que vous encadrez, avec leurs gestes de stock." : "Votre fiche, avec vos gestes de stock."}</p>
   ${admin ? `<div class="segments" role="group" aria-label="Partie de l'écran"><button data-onglet-eq="fiches" aria-pressed="${ongletEq === "fiches"}">Les fiches</button><button data-onglet-eq="acces" aria-pressed="${ongletEq === "acces"}">Accès et sécurité${attente ? ` <span class="nb-attente">${attente}</span>` : ""}</button></div>` : ""}
   ${ongletEq === "acces" && admin ? dAcces() : `${cartesEquipe()}
     ${admin ? `<p style="margin-top:14px"><button class="btn plein" data-act="ajouterPersonne">${I.equipe}Ajouter une personne</button></p>` : ""}
@@ -102,13 +107,13 @@ function vEquipe() {
 
 /* ---------------- Fiche d'une personne ---------------- */
 let periodeFiche = 30, nFiche = 30;
-function grapheGestes(l, jours) {
+function grapheGestes(l, jours, moiMeme) {
   // 7 ou 30 jours : une colonne par jour. 90 jours : une colonne par semaine.
   const parSem = jours > 30, cases = parJour(l, parSem ? 91 : jours);
   const cols = parSem ? Array.from({ length: 13 }, (_, i) => ({ t: cases[i * 7].t, n: cases.slice(i * 7, i * 7 + 7).reduce((t, c) => t + c.n, 0) })) : cases;
   const etroit = window.innerWidth < 720, max = Math.max(1, ...cols.map(c => c.n)), W = etroit ? 340 : 640, H = etroit ? 120 : 150, pas = W / cols.length, lg = Math.min(34, pas * .62);
   const jour = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  return `<div class="graphe eq-graphe"><h3>Gestes ${parSem ? "par semaine" : "par jour"}</h3><p class="q">Quand cette personne a-t-elle travaillé sur le stock ?</p>
+  return `<div class="graphe eq-graphe"><h3>Gestes ${parSem ? "par semaine" : "par jour"}</h3><p class="q">${moiMeme ? "Quels jours avez-vous enregistré des gestes ?" : "Quels jours y a-t-il eu des gestes ?"}</p>
     <svg viewBox="0 0 ${W} ${H + 26}" role="img" aria-label="Gestes ${parSem ? "par semaine" : "par jour"} sur ${jours} jours">
       <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--trait-fort)" stroke-width="1"/>
       ${cols.map((c, i) => { const h = c.n ? Math.max(4, c.n / max * (H - 22)) : 0, x = i * pas + (pas - lg) / 2; return `<g data-tip="${c.n} geste${c.n > 1 ? "s" : ""} · ${parSem ? "semaine du " : ""}${jour(c.t)}"><rect x="${(i * pas).toFixed(1)}" y="0" width="${pas.toFixed(1)}" height="${H}" fill="transparent"/>${c.n ? `<rect x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${lg.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="var(--depot)"/>${etroit && cols.length > 14 ? "" : `<text class="v" x="${(x + lg / 2).toFixed(1)}" y="${(H - h - 5).toFixed(1)}" text-anchor="middle">${c.n}</text>`}` : ""}</g>`; }).join("")}
@@ -123,6 +128,12 @@ function lignesGestes(l) {
     return `${tete}<li><button class="c-${FAMILLES[familleDe(m)].c}" ${a && S.articles.includes(a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${a.id}"` : "disabled"}><i aria-hidden="true"></i><time>${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time><span><b>${esc(MOTS_GESTES[m.type] || m.type)} · ${qteGeste(m)}${esc(a ? a.nom : m.article)}</b>${m.evenement || m.imputation || m.motif ? `<small>${esc([m.evenement || m.imputation, m.motif].filter(Boolean).join(" · "))}</small>` : ""}</span></button></li>`;
   }).join("")}</ul>`;
 }
+// La phrase « qui voit ma fiche » suit les rôles présents et leurs droits : pas de « responsable » s'il n'y en a pas.
+function quiVoitMaFiche() {
+  const bureau = (RANG[session.profil] || 1) < RANG.bureau && droit("profils", "bureau") && S.equipe.some(x => x.role === "bureau" && x.actif);
+  const autres = S.equipe.some(x => x.role === "direction" && x.actif && x.id !== session.uid);
+  return session.profil === "direction" ? (autres ? "Vous, et les autres personnes de la direction" : "Vous seulement") : bureau ? "Vous, votre responsable et la direction" : "Vous et la direction";
+}
 function vPersonne(uid) {
   const u = S.equipe.find(x => x.id === (uid || session.uid));
   if (!u || !peutVoirFiche(u)) return `<h1>Pas d'accès</h1><p class="sous">Cette fiche n'est pas prévue pour votre rôle. Demandez à votre responsable.</p>`;
@@ -134,25 +145,25 @@ function vPersonne(uid) {
   return `<div class="eq-tete">
     ${moiMeme ? `<button class="eq-photo" data-photo aria-label="Changer ma photo">${avatar(u, "tres")}<span class="eq-photo-pic">${I.appareil}</span></button>` : avatar(u, "tres")}
     <div><h1>${esc(u.nom)}</h1><p class="sous">${esc(u.poste || PROFILS[u.role].nom)} · ${esc(ROLES[u.role].split(" : ")[0])}</p>
-      <p class="eq-pastilles">${u.admin ? `<span class="statut">administre le compte</span>` : ""}${e ? `<span class="statut ${u.actif ? "s-confirme" : "s-partie"}">${e}</span>` : ""}${cx ? `<span class="statut">dernière connexion ${ilYA(cx.date)}</span>` : ""}</p></div>
+      <p class="eq-pastilles">${u.admin ? `<span class="statut">administre le compte</span>` : ""}${e ? `<span class="statut">${e}</span>` : ""}${cx ? `<span class="statut">dernière connexion ${ilYA(cx.date)}</span>` : ""}</p></div>
   </div>
   ${moiMeme ? `<div class="eq-actions"><button class="btn petit" data-photo>${I.appareil}${u.photo ? "Changer ma photo" : "Ajouter ma photo"}</button><button class="btn petit" data-nouveau-code="${u.id}">${I.cadenas}Changer mon mot de passe</button></div>`
     : admin && !u.empreinte && u.actif ? `<div class="eq-actions"><button class="btn petit plein" data-inviter="${u.id}">${I.partager}Envoyer l'invitation</button></div>` : ""}
   <div class="w-entete" style="margin-top:22px"><h2 style="margin:0">Compte rendu d'activité</h2><div class="segments" role="group" aria-label="Période">${[7, 30, 90].map(j => `<button data-periode-fiche="${j}" aria-pressed="${periodeFiche === j}">${j} j</button>`).join("")}</div></div>
   <div class="eq-chiffres">
     <div><b data-compte="${r.total}">${r.total}</b><span>geste${r.total > 1 ? "s" : ""} en ${periodeFiche} jours</span></div>
-    <div class="c-sortie"><b data-compte="${r.sortie}">${r.sortie}</b><span>sorties</span></div>
-    <div class="c-retour"><b data-compte="${r.retour}">${r.retour}</b><span>retours et entrées</span></div>
-    <div class="c-compter"><b data-compte="${r.compter}">${r.compter}</b><span>comptages et contrôles</span></div>
-    <div class="c-alerte"><b data-compte="${r.perte}">${r.perte}</b><span>pertes signalées${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</span></div>
+    <div class="c-sortie"><b data-compte="${r.sortie}">${r.sortie}</b><span>${r.sortie > 1 ? "sorties" : "sortie"}</span></div>
+    <div class="c-retour"><b data-compte="${r.retour}">${r.retour}</b><span>${r.retour > 1 ? "retours et entrées" : "retour ou entrée"}</span></div>
+    <div class="c-compter"><b data-compte="${r.compter}">${r.compter}</b><span>${r.compter > 1 ? "comptages et autres gestes" : "comptage ou autre geste"}</span></div>
+    <div class="c-alerte"><b data-compte="${r.perte}">${r.perte}</b><span>${r.perte > 1 ? "pertes signalées" : "perte signalée"}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</span></div>
   </div>
-  ${grapheGestes(l, periodeFiche)}
-  ${top.length ? `<h2>Ce qui passe le plus entre ses mains</h2><ul class="b-liste">${top.map(x => `<li><button class="l" ${S.articles.includes(x.a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${x.a.id}"` : "disabled"}>${img(x.a)}<span><b>${esc(x.a.nom)}</b><small>${x.n} geste${x.n > 1 ? "s" : ""}</small></span><span class="n">${x.n}</span></button></li>`).join("")}</ul>` : ""}
+  ${grapheGestes(l, periodeFiche, moiMeme)}
+  ${top.length ? `<h2>${moiMeme ? "Ce qui passe le plus entre vos mains" : "Ce qui passe le plus entre ses mains"}</h2><ul class="b-liste">${top.map(x => `<li><button class="l" ${S.articles.includes(x.a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${x.a.id}"` : "disabled"}>${img(x.a)}<span><b>${esc(x.a.nom)}</b><small>${pl(x.n, "geste", "gestes")}</small></span><span class="n">${x.n}</span></button></li>`).join("")}</ul>` : ""}
   <h2>Derniers gestes</h2>
-  ${l.length ? `${lignesGestes(l.slice(0, nFiche))}${l.length > nFiche ? `<p style="margin-top:12px"><button class="btn" data-plus-fiche>Afficher ${Math.min(30, l.length - nFiche)} gestes de plus</button></p>` : ""}` : `<p class="vide">Aucun geste enregistré sur cette période.</p>`}
+  ${l.length ? `${lignesGestes(l.slice(0, nFiche))}${l.length > nFiche ? `<p style="margin-top:12px"><button class="btn" data-plus-fiche>Afficher ${pl(Math.min(30, l.length - nFiche), "geste", "gestes")} de plus</button></p>` : ""}` : `<p class="vide">Aucun geste enregistré sur cette période.</p>`}
   <div class="eq-actions" style="margin-top:18px"><button class="btn petit" data-aller="compteRendu" data-arg="${u.id}">${I.imprimer}Compte rendu à imprimer</button><button class="btn petit" data-export-fiche="${u.id}">${I.excel}Exporter en Excel</button></div>
-  ${!moiMeme && admin ? `<p class="eq-admin">Accès : <button class="lien" data-inviter="${u.id}">envoyer un nouveau lien d'accès</button>${u.photo ? ` · <button class="lien" data-retirer-photo="${u.id}">retirer la photo</button>` : ""}</p>` : ""}
-  ${moiMeme ? `<div class="eq-note"><b>Qui voit cette fiche</b><p>Vous, ${session.profil === "direction" ? "et les autres personnes de la direction" : session.profil === "bureau" ? "et la direction" : "votre responsable et la direction"}. Elle montre vos gestes de stock : quoi, combien, quand. L'appli ne relève ni votre position, ni votre temps de travail.</p></div>` : ""}`;
+  ${!moiMeme && admin ? `<div class="eq-actions eq-admin">${u.actif && u.empreinte ? `<button class="btn petit" data-inviter="${u.id}">${I.partager}Envoyer un nouveau lien d'accès</button>` : ""}${u.photo ? `<button class="btn petit" data-retirer-photo="${u.id}">Retirer la photo</button>` : ""}</div>` : ""}
+  ${moiMeme ? `<div class="eq-note"><b>Qui voit cette fiche</b><p>${quiVoitMaFiche()}. Elle montre vos gestes de stock : quoi, combien, quand. L'appli ne relève ni votre position, ni votre temps de travail.</p></div>` : ""}`;
 }
 
 /* Compte rendu à imprimer : sur papier blanc, comme les autres documents. */
@@ -161,12 +172,12 @@ function vCompteRendu(uid) {
   if (!u || !peutVoirFiche(u)) return `<h1>Pas d'accès</h1><p class="sous">Ce document n'est pas prévu pour votre rôle.</p>`;
   const l = gestesDe(u, periodeFiche), r = resumeGestes(l), prix = droit("prix"), fin = new Date(), debut = new Date(Date.now() - periodeFiche * 86400000);
   const jj = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  return `<p class="pas-imprimer"><button class="lien" data-aller="personne" data-arg="${u.id}">← Fiche de ${esc(u.nom)}</button> · <button class="lien" data-act="imprimer">Imprimer ou enregistrer en PDF</button></p>
+  return `<div class="eq-actions pas-imprimer" style="margin-bottom:14px"><button class="btn petit" data-aller="personne" data-arg="${u.id}">${I.precedent}Fiche de ${esc(u.nom)}</button><button class="btn petit plein" data-act="imprimer">${I.imprimer}Imprimer ou enregistrer en PDF</button></div>
   <div class="feuille-doc">${enTeteDoc()}<h1>Compte rendu d'activité</h1>
-  <p><b>${esc(u.nom)}</b>, ${esc(u.poste || "")}<br>Du ${jj(debut)} au ${jj(fin)} · édité par ${esc(moi().nom)}</p>
-  <table><tbody><tr><td>Gestes enregistrés</td><td class="n">${r.total}</td></tr><tr><td>Sorties</td><td class="n">${r.sortie}</td></tr><tr><td>Retours et entrées</td><td class="n">${r.retour}</td></tr><tr><td>Comptages et contrôles</td><td class="n">${r.compter}</td></tr><tr><td>Pertes signalées</td><td class="n">${r.perte}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</td></tr></tbody></table>
+  <p><b>${esc(u.nom)}</b>${u.poste ? ", " + esc(u.poste) : ""}<br>Du ${jj(debut)} au ${jj(fin)} · édité par ${esc(moi().nom)}</p>
+  <table><tbody><tr><td>Gestes enregistrés</td><td class="n">${r.total}</td></tr><tr><td>Sorties</td><td class="n">${r.sortie}</td></tr><tr><td>Retours et entrées</td><td class="n">${r.retour}</td></tr><tr><td>Comptages et autres gestes</td><td class="n">${r.compter}</td></tr><tr><td>Pertes signalées</td><td class="n">${r.perte}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</td></tr></tbody></table>
   <h2>Détail des gestes</h2>
-  ${l.length ? `<div class="defile"><table class="etroit"><thead><tr><th>Date et heure</th><th>Geste</th><th>Objet</th><th class="n">Quantité</th><th>${esc(V("imp") || "Pour")}</th></tr></thead><tbody>${l.slice(0, 300).map(m => { const a = art(m.article); return `<tr><td>${quand(m.date)}</td><td>${esc(MOTS_GESTES[m.type] || m.type)}</td><td>${esc(a ? a.nom : m.article)}</td><td class="n">${qteSignee(m)}</td><td>${esc([m.evenement || m.imputation, m.motif].filter(Boolean).join(" · "))}</td></tr>`; }).join("")}</tbody></table></div>${l.length > 300 ? `<p class="petit">Les 300 gestes les plus récents sont imprimés. L'export Excel les contient tous.</p>` : ""}` : `<p>Aucun geste enregistré sur cette période.</p>`}
+  ${l.length ? `<div class="defile"><table class="etroit eq-detail"><thead><tr><th>Date et heure</th><th>Geste</th><th>Objet</th><th class="n">Quantité</th><th>${esc(V("imp") || "Pour")}</th></tr></thead><tbody>${l.slice(0, 300).map(m => { const a = art(m.article); return `<tr><td>${quand(m.date)}</td><td>${esc(MOTS_GESTES[m.type] || m.type)}</td><td>${esc(a ? a.nom : m.article)}</td><td class="n">${qteSignee(m)}</td><td>${esc([m.evenement || m.imputation, m.motif].filter(Boolean).join(" · "))}</td></tr>`; }).join("")}</tbody></table></div>${l.length > 300 ? `<p class="petit">Les 300 gestes les plus récents sont imprimés. L'export Excel les contient tous.</p>` : ""}` : `<p>Aucun geste enregistré sur cette période.</p>`}
   <p class="petit">Ce document reprend les gestes enregistrés dans l'appli. Il ne mesure ni la présence, ni le temps de travail.</p></div>`;
 }
 function exporterFiche(uid) {
@@ -210,16 +221,18 @@ function feuillePhoto() {
 }
 
 /* ---------------- Ajouter une personne et l'inviter ---------------- */
-function prochainUid() { let n = 0; S.equipe.forEach(u => { const k = +String(u.id).replace(/\D/g, ""); if (k > n) n = k; }); return "U-" + String(n + 1).padStart(2, "0"); }
+// Au-dessus des cinq comptes de démonstration, pour ne jamais reprendre l'identifiant interne de l'un d'eux.
+function prochainUid() { let n = EQUIPE_DEMO.length; S.equipe.forEach(u => { const k = +String(u.id).replace(/\D/g, ""); if (k > n) n = k; }); return "U-" + String(n + 1).padStart(2, "0"); }
 function feuilleAjouter() {
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="taj"><h1 id="taj" style="font-size:26px">Ajouter une personne</h1>
     <p class="sous">Vous ne choisissez pas son mot de passe. Vous lui envoyez un lien, elle choisit le sien.</p>
     <label class="champ">Prénom<input name="nom" autocomplete="off" maxlength="30"></label>
     <label class="champ">Identifiant<input name="ident" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="prenom ou prenom.nom"></label>
     <label class="champ">Poste<input name="poste" autocomplete="off" maxlength="40" placeholder="Magasinier, chauffeur…"></label>
-    <label class="champ">Rôle<select name="role">${Object.entries(ROLES).map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+    <label class="champ">Rôle<select name="role">${Object.entries(ROLES).filter(([k]) => k !== "chauffeur" || permis("tournee", "chauffeur") || S.equipe.some(x => x.role === "chauffeur")).map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
     <div class="valider"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Créer et inviter</button></div>
-    <p style="text-align:center;margin:14px 0 0"><button class="lien" data-mdp>Lui donner un mot de passe moi-même</button></p></div>`);
+    <div class="valider" style="grid-template-columns:1fr;margin-top:10px"><button class="btn petit" style="width:100%" data-mdp>Lui donner un mot de passe moi-même</button></div></div>`);
+  f.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); f.querySelector("[data-ok]").click(); } });
   const champ = n => f.querySelector(`[name=${n}]`);
   champ("nom").oninput = () => { if (!champ("ident").dataset.touche) champ("ident").value = sansAccent(champ("nom").value).replace(/[^a-z0-9.-]/g, ""); };
   champ("ident").oninput = () => { champ("ident").dataset.touche = "1"; };
@@ -230,7 +243,7 @@ function feuilleAjouter() {
     if (!nom) return toast("Indiquez le prénom.");
     if (!/^[a-z0-9.-]{3,30}$/.test(ident)) return toast("Identifiant : 3 caractères au moins, lettres, chiffres, point ou tiret.");
     if (S.equipe.some(x => x.identifiant === ident)) return toast("Cet identifiant est déjà pris.");
-    const u = { id: prochainUid(), nom, identifiant: ident, poste: champ("poste").value.trim() || PROFILS[role].nom, role, admin: false, actif: true, empreinte: "", depuis: Date.now() };
+    const u = { id: prochainUid(), nom, identifiant: ident, poste: champ("poste").value.trim() || posteParDefaut(role), role, admin: false, actif: true, empreinte: "", depuis: Date.now() };
     S.equipe.push(u); sauver(); f.remove(); rendre(); feuilleInviter(u.id);
   };
 }
@@ -243,9 +256,13 @@ const INVITATION_JOURS = 7;
 const b64u = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const deb64u = s => decodeURIComponent(escape(atob(String(s).replace(/-/g, "+").replace(/_/g, "/"))));
 function lienInvitation(u) {
-  if (!u.invite || u.invite.x < Date.now()) u.invite = { k: Math.random().toString(36).slice(2, 10), x: Date.now() + INVITATION_JOURS * 86400000, le: Date.now() };
+  // Tant qu'une invitation est en attente et valable, on redonne le même lien : rouvrir la feuille ne casse pas celui déjà envoyé.
+  if (!u.invite || u.invite.x < Date.now()) {
+    u.invite = { k: Math.random().toString(36).slice(2, 10), x: Date.now() + INVITATION_JOURS * 86400000, le: Date.now() };
+    u.invitesEmises = (u.invitesEmises || []).concat(u.invite.k).slice(-20);
+  }
   sauver();
-  const d = { v: 1, k: u.invite.k, x: u.invite.x, e: (S.entreprise || {}).nom || "", n: u.nom, i: u.identifiant, p: u.poste || "", r: u.role, a: u.admin ? 1 : 0, m: S.variante || S.metier || "loueur", par: session ? session.nom : "" };
+  const d = { v: 1, k: u.invite.k, x: u.invite.x, e: (S.entreprise || {}).nom || "", n: u.nom, i: u.identifiant, p: u.poste || "", r: u.role, m: S.variante || S.metier || "loueur", par: session ? session.nom : "" };
   return adresseDemo() + "#invitation=" + b64u(JSON.stringify(d));
 }
 function texteInvitation(u, lien) {
@@ -257,11 +274,11 @@ async function feuilleInviter(uid) {
   const lien = lienInvitation(u), texte = texteInvitation(u, lien), fin = new Date(u.invite.x).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tin"><h1 id="tin" style="font-size:26px">Inviter ${esc(u.nom)}</h1>
     <p class="sous">${esc(u.nom)} ouvre ce lien sur son téléphone, choisit son mot de passe, puis met l'appli sur son écran d'accueil. Aucun mot de passe ne circule.</p>
-    <div class="eq-qr"><div data-qr-invitation aria-label="QR code de l'invitation"></div><p><b>À côté de vous ?</b> Faites-lui viser ce QR code avec l'appareil photo de son téléphone.</p></div>
+    <div class="eq-qr grand"><div data-qr-invitation role="img" aria-label="QR code de l'invitation"></div><p><b>À côté de vous ?</b> Faites-lui viser ce QR code avec l'appareil photo de son téléphone.</p></div>
     <div class="eq-envois">
       ${navigator.share ? `<button class="btn plein" data-env="partage">${I.partager}Envoyer le lien</button>` : ""}
       <a class="btn" data-env="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texte)}">WhatsApp</a>
-      <a class="btn" data-env="sms" href="sms:?&body=${encodeURIComponent(texte)}">SMS</a>
+      ${/Android|iPhone|iPad|iPod/.test(navigator.userAgent) ? `<a class="btn" data-env="sms" href="sms:?&body=${encodeURIComponent(texte)}">SMS</a>` : ""}
       <a class="btn" data-env="mel" href="mailto:?subject=${encodeURIComponent("Votre accès à l'appli de stock")}&body=${encodeURIComponent(texte)}">E-mail</a>
       <button class="btn" data-env="copier">Copier le lien</button>
     </div>
@@ -285,44 +302,72 @@ function ecrireTemoin(v) {
 function lireTemoin() {
   try { const m = document.cookie.match(new RegExp("(?:^|; )" + CLE_INVITATION + "=([^;]+)")); return m ? m[1] : ""; } catch (e) { return ""; }
 }
+const propre = (o, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k);
 function lireInvitation(jeton) {
-  // Le lien vient de l'extérieur : on ne garde que des textes courts, un identifiant bien formé et un rôle connu.
+  // Le lien vient de l'extérieur : on ne garde que des textes courts, un identifiant bien formé, un rôle et un métier connus.
+  // Un lien ne crée jamais d'administrateur.
   try {
     const d = JSON.parse(deb64u(jeton)), txt = (v, n) => typeof v === "string" ? v.slice(0, n) : "";
-    if (!d || d.v !== 1 || !PROFILS[d.r] || !/^[a-z0-9.-]{3,30}$/.test(d.i) || !txt(d.n, 30).trim() || typeof d.x !== "number") return null;
-    return { v: 1, k: txt(d.k, 16), x: d.x, e: txt(d.e, 60), n: txt(d.n, 30).trim(), i: d.i, p: txt(d.p, 40), r: d.r, a: d.a ? 1 : 0, m: txt(d.m, 30), par: txt(d.par, 30) };
+    if (!d || d.v !== 1 || !propre(PROFILS, d.r) || !/^[a-z0-9.-]{3,30}$/.test(d.i) || !txt(d.n, 30).trim() || typeof d.x !== "number" || !isFinite(d.x)) return null;
+    return { v: 1, k: txt(d.k, 16), x: Math.min(d.x, Date.now() + (INVITATION_JOURS + 1) * 86400000), e: txt(d.e, 60), n: txt(d.n, 30).trim(), i: d.i, p: txt(d.p, 40), r: d.r, m: propre(METIERS, d.m) ? d.m : "", par: txt(d.par, 30) };
   } catch (e) { return null; }
 }
-// Place la personne dans l'équipe de cet appareil (démo) : l'entreprise et le métier suivent l'invitation.
-function accueillirInvite(d) {
-  if (METIERS[d.m] && !S.monEssai && !S.equipe.some(x => x.identifiant === d.i) && (S.variante || S.metier || "loueur") !== d.m) { const garder = { monnaie: S.monnaie }; S = construireDemo(d.m); Object.assign(S, garder); }
-  if (d.e && !S.monEssai) S.entreprise = Object.assign({}, S.entreprise, { nom: d.e });
+// Place la personne dans l'équipe de cet appareil (démo). Sur un appareil qui n'a jamais vu cette entreprise,
+// la démo du métier de l'invitation s'ouvre ; jamais dans un groupe ni dans une démo d'essai.
+function accueillirInvite(d, uid) {
+  const simple = !S.monEssai && !S.etab && !(typeof groupeActif === "function" && groupeActif());
+  if (simple && d.m && !S.equipe.some(x => x.identifiant === d.i) && (S.variante || S.metier || "loueur") !== d.m) { const garder = { monnaie: S.monnaie }; S = construireDemo(d.m); Object.assign(S, garder); }
+  if (simple && d.e) S.entreprise = Object.assign({}, S.entreprise, { nom: d.e });
   let u = S.equipe.find(x => x.identifiant === d.i);
-  if (!u) { u = { id: prochainUid(), nom: d.n, identifiant: d.i, poste: d.p || PROFILS[d.r].nom, role: d.r, admin: !!d.a, actif: true, empreinte: "", depuis: Date.now() }; S.equipe.push(u); }
+  if (!u) { u = { id: uid && !S.equipe.some(x => x.id === uid) ? uid : prochainUid(), nom: d.n, identifiant: d.i, poste: d.p || posteParDefaut(d.r), role: d.r, admin: false, actif: true, empreinte: "", depuis: Date.now() }; S.equipe.push(u); }
   return u;
 }
+// Ce qu'on fait d'un lien, selon ce que cet appareil sait de la personne.
+function etapeInvitation(d) {
+  const u = S.equipe.find(x => x.identifiant === d.i);
+  if (!u) return d.x < Date.now() ? "perime" : S.monEssai ? "ailleurs" : "mdp";
+  if (!u.actif) return "perime";                                  // accès retiré : aucun lien ne le rouvre
+  if ((u.invitesVues || []).includes(d.k)) return "servi";       // ce lien a déjà servi ici
+  if (d.x < Date.now()) return "perime";
+  if (u.invite) return u.invite.k === d.k ? "mdp" : "perime";    // seul le lien en attente marche
+  // Aucune invitation en attente : un ancien lien émis ici, ou un lien vers le compte de l'administrateur, est refusé.
+  if (u.admin || (u.invitesEmises || []).includes(d.k)) return "perime";
+  return "mdp";
+}
+const CLE_REPRISE = "stockclair-invitation-reprise";
 function demarrerInvitation() {
-  const m = location.hash.match(/^#invitation=([A-Za-z0-9_-]+)$/);
-  if (m) {
-    const d = lireInvitation(m[1]);
+  const brut = location.hash.match(/^#invitation=/), m = location.hash.match(/^#invitation=([A-Za-z0-9_-]+)/);
+  if (brut) {
+    const d = m ? lireInvitation(m[1]) : null;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* adresse laissée telle quelle */ }
-    if (!d) { msgConnexion = "Ce lien d'invitation est incomplet. Demandez-en un nouveau à votre responsable."; return; }
-    session = null; installateur = false;
-    const u = S.equipe.find(x => x.identifiant === d.i);
-    // Sur l'appareil d'où part l'invitation, un lien remplacé par un plus récent ne marche plus.
-    const remplace = u && u.invite && u.invite.k !== d.k, dejaServi = u && u.inviteVue === d.k;
-    invitation = { d, etape: d.x < Date.now() || remplace ? "perime" : dejaServi ? "servi" : "mdp", msg: "" };
+    const etape = d ? etapeInvitation(d) : "";
+    if (!d || etape === "ailleurs") { msgConnexion = d ? "Cette invitation ne correspond pas à la démo ouverte sur cet appareil." : "Ce lien d'invitation est incomplet. Demandez-en un nouveau à votre responsable."; return; }
+    session = null; verrouille = false; installateur = false; $$(".feuille").forEach(f => f.remove());
+    invitation = { d, etape, msg: "" };
     return;
   }
-  // Appli ouverte depuis l'écran d'accueil d'un iPhone : on retrouve l'invitation acceptée dans Safari.
+  // Appli ouverte depuis l'écran d'accueil d'un iPhone : sa mémoire est neuve, mais elle a reçu le témoin de Safari.
+  // Une seule fois par invitation, et jamais dans un groupe, une démo d'essai ou une démo demandée par l'adresse.
+  if (!dejaInstallee()) return;
   const t = lireTemoin(); if (!t) return;
-  const [jeton, emp] = t.split("."), d = lireInvitation(jeton);
-  if (d && emp && d.x > Date.now()) {
-    let u = S.equipe.find(x => x.identifiant === d.i);
-    if (!u || !u.empreinte) { u = accueillirInvite(d); u.empreinte = emp; delete u.invite; sauver(); }
-    try { if (!localStorage.getItem(CLE_IDENT)) localStorage.setItem(CLE_IDENT, d.i); } catch (e) { /* stockage bloqué */ }
-  }
+  const [jeton, emp, uid] = t.split("."), d = lireInvitation(jeton), q = new URLSearchParams(location.search);
+  let deja = ""; try { deja = localStorage.getItem(CLE_REPRISE) || ""; } catch (e) { /* stockage bloqué */ }
+  if (!d || !emp || d.x < Date.now() || deja === d.k || S.monEssai || S.etab || q.get("metier") || q.get("groupe")) return;
+  const connu = S.equipe.find(x => x.identifiant === d.i);
+  if (connu && (!connu.actif || connu.admin)) return;
+  const u = accueillirInvite(d, uid);
+  u.empreinte = /^[0-9a-f]{8}$/.test(emp) ? emp : u.empreinte; delete u.invite; u.invitesVues = (u.invitesVues || []).concat(d.k).slice(-20);
+  // L'empreinte dépend de l'identifiant interne : si celui du navigateur n'a pas pu être repris, la personne repasse par son lien.
+  if (uid && u.id !== uid) u.empreinte = "";
+  sauver();
+  try { localStorage.setItem(CLE_REPRISE, d.k); if (!localStorage.getItem(CLE_IDENT)) localStorage.setItem(CLE_IDENT, d.i); } catch (e) { /* stockage bloqué */ }
 }
+// Un lien d'invitation collé dans un onglet où l'appli est déjà ouverte.
+window.addEventListener("hashchange", () => {
+  if (!/^#invitation=/.test(location.hash)) return;
+  if (session && !confirm("Ouvrir cette invitation ? La personne connectée sur cet appareil sera déconnectée.")) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* adresse laissée telle quelle */ } return; }
+  demarrerInvitation(); rendre(); window.scrollTo(0, 0);
+});
 // Navigateurs ouverts à l'intérieur d'une autre appli (Facebook, Instagram…) : ils ne savent pas poser l'appli sur l'écran d'accueil.
 const navigateurInterne = () => /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok/i.test(navigator.userAgent);
 function pasInstallation() {
@@ -339,10 +384,10 @@ function vInvitation() {
   const tete = `<div class="barre"><div class="marque">${I.logo}<span>${esc(d.e || "Stockclair")}</span></div>${boutonReglages}</div>`;
   const faux = { nom: d.n, role: d.r };
   if (e === "perime" || e === "servi") return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete"><h1>${e === "servi" ? "Votre accès existe déjà" : "Ce lien ne marche plus"}</h1><p class="sous">${e === "servi" ? "Cette invitation a déjà servi. Entrez avec votre identifiant et votre mot de passe." : `Une invitation vaut ${INVITATION_JOURS} jours, et seul le dernier lien envoyé marche. Demandez-en un nouveau${d.par ? " à " + esc(d.par) : ""}.`}</p></div>
+    <div class="c-tete"><h1>${e === "servi" ? "Votre accès existe déjà" : "Ce lien ne marche plus"}</h1><p class="sous">${e === "servi" ? "Cette invitation a déjà servi. Entrez avec votre identifiant et votre mot de passe." : `Une invitation vaut ${INVITATION_JOURS} jours et ne sert qu'une fois. Demandez-en une nouvelle${d.par ? " à " + esc(d.par) : " à votre responsable"}.`}</p></div>
     <button class="btn plein" data-invitation="connexion">Aller à l'écran de connexion</button></div>`;
   if (e === "installer") return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete"><p class="eq-etape">Étape 2 sur 2</p><h1>Mettez l'appli sur votre téléphone</h1><p class="sous">Une icône sur l'écran d'accueil, comme vos autres applis. Elle s'ouvre en plein écran et continue sans réseau. Rien à chercher dans un magasin d'applications.</p></div>
+    <div class="c-tete"><p class="eq-etape">Étape 2 sur 2</p><h1>${/Android|iPhone|iPad|iPod/.test(navigator.userAgent) ? "Mettez l'appli sur votre téléphone" : "Installez l'appli sur cet appareil"}</h1><p class="sous">Une icône sur l'écran d'accueil, comme vos autres applis. Elle s'ouvre en plein écran et continue sans réseau. Rien à chercher dans un magasin d'applications.</p></div>
     <div class="c-form verre eq-installer">
       ${inviteInstall ? `<button class="btn plein" data-invitation="installer">${I.telecharger}Installer l'appli</button><p class="w-note">Un seul geste. Si rien ne se passe, suivez les étapes ci-dessous.</p>` : ""}
       ${pasInstallation()}
@@ -350,7 +395,7 @@ function vInvitation() {
     <div class="valider" style="grid-template-columns:1fr"><button class="btn ${inviteInstall ? "" : "plein"}" data-invitation="entrer">C'est fait, entrer dans l'appli</button></div>
     <p class="c-pied"><button class="lien" data-invitation="entrer">Plus tard</button></p></div>`;
   return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete centre">${avatar(faux, true)}<p class="eq-etape">Étape 1 sur 2</p><h1>Bienvenue ${esc(d.n)}</h1><p class="sous">${d.par ? esc(d.par) + " vous ouvre" : "Voici"} l'accès à l'appli de stock${d.e ? " de " + esc(d.e) : ""}. Choisissez votre mot de passe : vous seul le connaîtrez.</p></div>
+    <div class="c-tete centre">${avatar(faux, true)}<p class="eq-etape">Étape 1 sur 2</p><h1>Bienvenue ${esc(d.n)}</h1><p class="sous">${d.par ? esc(d.par) + " vous ouvre" : "Voici"} l'accès à l'appli de stock${d.e ? " de " + esc(d.e) : ""}. Choisissez votre mot de passe : personne d'autre ne le connaîtra.</p></div>
     <form class="c-form verre" data-form="invitation">
       <p class="eq-ident">Votre identifiant<b class="code">${esc(d.i)}</b></p>
       <label class="champ">Mot de passe, 6 caractères au moins${champMdp("new-password")}</label>
@@ -364,12 +409,15 @@ function accepterInvitation(f) {
   const d = invitation.d, mdp = f.mdp.value, mdp2 = f.mdp2.value;
   const refus = mdp.length < 6 ? "Le mot de passe fait 6 caractères au moins." : mdp !== mdp2 ? "Les deux mots de passe ne sont pas pareils." : MDP_FAIBLES.includes(mdp.toLowerCase()) || mdp.toLowerCase().includes(d.i) ? "Mot de passe trop facile à deviner." : "";
   if (refus) { invitation.msg = refus; return rendre(); }
+  // L'état a pu changer depuis l'ouverture du lien (accès retiré, autre lien émis) : on revérifie avant d'écrire.
+  const etape = etapeInvitation(d);
+  if (etape !== "mdp") { invitation.etape = etape === "ailleurs" ? "perime" : etape; invitation.msg = ""; return rendre(); }
   const u = accueillirInvite(d);
-  u.empreinte = empreinte(u.id, mdp); u.actif = true; delete u.invite; u.inviteVue = d.k; if (!u.depuis) u.depuis = Date.now();
+  u.empreinte = empreinte(u.id, mdp); delete u.invite; u.invitesVues = (u.invitesVues || []).concat(d.k).slice(-20);
   S.connexions.unshift({ date: Date.now(), uid: u.id, nom: u.nom, ok: true, motif: "Invitation acceptée" }); S.connexions = S.connexions.slice(0, 200);
   sauver();
   try { localStorage.setItem(CLE_IDENT, d.i); } catch (e) { /* stockage bloqué */ }
-  ecrireTemoin(b64u(JSON.stringify(d)) + "." + u.empreinte);
+  ecrireTemoin(b64u(JSON.stringify(d)) + "." + u.empreinte + "." + u.id);
   invitation.uid = u.id; invitation.msg = "";
   if (dejaInstallee()) return finirInvitation();
   invitation.etape = "installer"; rendre(); window.scrollTo(0, 0);

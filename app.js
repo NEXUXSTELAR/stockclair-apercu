@@ -252,7 +252,7 @@ function vConnexion() {
     ${dejaInstallee() ? "" : `<button class="c-installer" data-act="ecranAccueil"><span class="pastille">${I.telecharger}</span><span><b>Installer l'appli</b><small>Une icône sur l'écran d'accueil, en plein écran, même sans réseau</small></span>${I.fleche}</button>`}
     ${blocEtabConnexion()}<details class="c-demo" open><summary><span><b>Comptes de démonstration</b><small>Entrer d'un geste, sans rien taper</small></span></summary>
       <p class="sous">Touchez un compte pour entrer. Chacun voit un écran différent, réglé pour son travail. Dans l'appli livrée, cette liste n'existe pas : chacun reçoit son identifiant.</p>
-      <div class="c-comptes">${EQUIPE_DEMO.filter(d => S.equipe.some(x => x.id === d.id)).map(d => { const u = S.equipe.find(x => x.id === d.id) || d; return `<button type="button" data-remplir="${S.etab ? u.identifiant : d.identifiant}|${d.mdp}">${avatar(u)}<span><b>${esc(u.poste)}</b><small>${esc(u.nom)} · <span class="code">${S.etab ? u.identifiant : d.identifiant}</span> · <span class="code">${d.mdp}</span></small></span>${I.fleche}</button>`; }).join("")}</div>
+      <div class="c-comptes">${EQUIPE_DEMO.filter(d => S.equipe.some(x => x.id === d.id && (S.etab || x.identifiant === d.identifiant) && x.empreinte === empreinte(x.id, d.mdp))).map(d => { const u = S.equipe.find(x => x.id === d.id) || d; return `<button type="button" data-remplir="${S.etab ? u.identifiant : d.identifiant}|${d.mdp}">${avatar(u)}<span><b>${esc(u.poste)}</b><small>${esc(u.nom)} · <span class="code">${S.etab ? u.identifiant : d.identifiant}</span> · <span class="code">${d.mdp}</span></small></span>${I.fleche}</button>`; }).join("")}</div>
     </details>
     <div class="c-pied">
       <button class="btn plein visite" data-act="tour">${I.fleche}Visite guidée en 2 minutes</button>
@@ -417,7 +417,7 @@ function vAccueil() {
   const u = moi(), h = new Date().getHours();
   const liste = accueilAvecControles(cfg().accueil).filter(([k]) => WIDGETS[k] && (!WIDGETS[k].si || WIDGETS[k].si()));
   const chiffres = liste.filter(([k]) => WIDGETS[k].o === "chiffres"), jour = liste.filter(([k]) => WIDGETS[k].o !== "chiffres");
-  const deux = chiffres.length > 0 && jour.length > 0 && liste.length > 4, onglets = [];
+  const deux = chiffres.length > 1 && jour.length > 0 && liste.length > 4, onglets = [];
   if (deux) onglets.push(["jour", "Aujourd'hui"], ["chiffres", "Chiffres"]);
   else if (fichesVisibles().length) onglets.push(["jour", "Aujourd'hui"]);
   if (fichesVisibles().length) onglets.push(["equipe", "Équipe"]);
@@ -663,7 +663,7 @@ const ROLES = { terrain: "Terrain : dépôt et camion", chauffeur: "Chauffeur : 
 function dAcces() {
   return `<p class="sous">Chacun entre avec son identifiant et son mot de passe. Chaque mouvement porte son nom. Retirer un accès prend une seconde.</p>
   <div class="bloc">${S.equipe.map(u => `<div class="personne ${u.actif ? "" : "inactif"}">${avatar(u)}<div><b>${esc(u.nom)}${u.admin ? " · administre le compte" : ""}</b><small><span class="code">${esc(u.identifiant || "")}</span> · ${esc(u.poste)} · ${ROLES[u.role]}${u.actif ? (u.empreinte ? "" : " · invitation en attente") : " · accès retiré"}</small></div>
-    <div class="actions">${u.id === session.uid ? `<button class="btn petit" data-nouveau-code="${u.id}">Changer mon mot de passe</button>` : `<button class="btn petit ${u.empreinte ? "" : "plein"}" data-inviter="${u.id}">${u.empreinte ? "Nouveau lien d'accès" : "Inviter"}</button><label class="inter"><input type="checkbox" data-acces="${u.id}" ${u.actif ? "checked" : ""} aria-label="Accès de ${esc(u.nom)}"><span></span></label>`}</div></div>`).join("")}</div>
+    <div class="actions">${u.id === session.uid ? `<button class="btn petit" data-nouveau-code="${u.id}">Changer mon mot de passe</button>` : `${u.actif ? `<button class="btn petit ${u.empreinte ? "" : "plein"}" data-inviter="${u.id}">${u.empreinte ? "Nouveau lien d'accès" : "Inviter"}</button>` : ""}<label class="inter"><input type="checkbox" data-acces="${u.id}" ${u.actif ? "checked" : ""} aria-label="Accès de ${esc(u.nom)}"><span></span></label>`}</div></div>`).join("")}</div>
   <p style="margin-top:12px"><button class="btn plein petit" data-act="ajouterPersonne">Ajouter une personne</button></p>
   <p class="w-note">Un mot de passe oublié ? « Nouveau lien d'accès » : la personne en choisit un autre elle-même. Personne d'autre ne le connaît, pas même vous.</p>
   <h2>Sécurité</h2>
@@ -685,7 +685,7 @@ const MDP_FAIBLES = ["123456", "1234567", "12345678", "azerty", "azertyuiop", "m
 function feuilleCode(uid) {
   const u = uid ? S.equipe.find(x => x.id === uid) : null;
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tc"><h1 id="tc" style="font-size:26px">${u ? (u.id === session.uid ? "Changer mon mot de passe" : "Nouveau mot de passe pour " + esc(u.nom)) : "Ajouter une personne"}</h1>
-    ${u ? `<p class="sous">${u.id === session.uid ? "L'ancien ne marchera plus. Vous seul le connaissez." : "L'ancien ne marchera plus. Donnez le nouveau en main propre, jamais par message."}</p>` : `
+    ${u ? `<p class="sous">${u.id === session.uid ? "L'ancien ne marchera plus. Personne d'autre ne le connaît." : "L'ancien ne marchera plus. Donnez le nouveau en main propre, jamais par message."}</p>` : `
     <label class="champ">Prénom<input name="nom" autocomplete="off" maxlength="30"></label>
     <label class="champ">Identifiant<input name="ident" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="prenom ou prenom.nom"></label>
     <label class="champ">Poste<input name="poste" autocomplete="off" maxlength="40" placeholder="Magasinier, chauffeur…"></label>
@@ -783,8 +783,8 @@ function feuilleEcranAccueil() {
   if (inviteInstall) { const i = inviteInstall; inviteInstall = null; i.prompt(); return; }
   const ordi = !/Android|iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.maxTouchPoints < 2;
   const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tea"><h1 id="tea" style="font-size:26px">Installer l'appli</h1>
-    <p class="sous">Aucun magasin d'applications. Le téléphone pose une icône, et l'appli s'ouvre ensuite en plein écran, même sans réseau.</p>
-    ${ordi ? `<div class="eq-qr"><div data-qr-appli aria-label="QR code de l'appli"></div><p><b>Sur votre téléphone</b>Visez ce QR code avec l'appareil photo : l'appli s'ouvre, il reste à l'installer.</p></div>` : ""}
+    <p class="sous">Aucun magasin d'applications. L'appareil pose une icône, et l'appli s'ouvre ensuite dans sa propre fenêtre, même sans réseau.</p>
+    ${ordi ? `<div class="eq-qr"><div data-qr-appli role="img" aria-label="QR code de l'appli"></div><p><b>Sur votre téléphone</b>Visez ce QR code avec l'appareil photo : l'appli s'ouvre, il reste à l'installer.</p></div>` : ""}
     ${pasInstallation()}
     <div class="valider" style="grid-template-columns:1fr"><button class="btn plein" data-x>J'ai compris</button></div></div>`);
   f.querySelector("[data-x]").onclick = () => f.remove();
@@ -999,7 +999,7 @@ function brancher() {
   $$("[data-remplir]").forEach(b => b.onclick = () => { const [i, m] = b.dataset.remplir.split("|"), f = $('[data-form="connexion"]'); f.ident.value = i; f.mdp.value = m; seConnecter(f); });
   $$("[data-racine]").forEach(b => b.onclick = () => aller(b.dataset.racine, null, true));
   $$("[data-periode]").forEach(b => b.onclick = () => { periode = +b.dataset.periode; rendre(); refocus(`[data-periode="${periode}"]`); });
-  $$("[data-acces]").forEach(c => c.onchange = () => { const u = S.equipe.find(x => x.id === c.dataset.acces); u.actif = c.checked; sauver(); rendre(); toast(c.checked ? `${u.nom} peut de nouveau se connecter.` : `Accès retiré à ${u.nom}. Ses mouvements restent dans le journal.`); });
+  $$("[data-acces]").forEach(c => c.onchange = () => { const u = S.equipe.find(x => x.id === c.dataset.acces); u.actif = c.checked; if (!u.actif) delete u.invite; sauver(); rendre(); toast(c.checked ? `${u.nom} peut de nouveau se connecter.` : `Accès retiré à ${u.nom}. Ses mouvements restent dans le journal.`); });
   $$("[data-nouveau-code]").forEach(b => b.onclick = () => feuilleCode(b.dataset.nouveauCode));
   $$("[data-verrou]").forEach(s => s.onchange = () => { S.reglages.verrou = +s.value; sauver(); activite(); toast("Réglage enregistré."); });
   $$("[data-aller]").forEach(b => b.onclick = () => aller(b.dataset.aller, b.dataset.arg));
@@ -1092,7 +1092,7 @@ const ACTIONS = {
   nouveauClientP: () => feuilleClientP(null),
   voirDemoClient: () => { installateur = false; session = null; rendre(); window.scrollTo(0, 0); },
   configDefaut: () => { if (!confirm("Remettre les blocs, la barre et les droits de tous les rôles comme le prévoit le métier ?")) return; S.config = configParDefaut(S.metier); sauver(); rendre(); toast("Réglages du métier remis."); },
-  reinit: () => { if (confirm("Effacer ce qui a été fait pendant la démo ?")) { if (groupeActif()) reinitGroupe(); else S = construireDemo(S.metier || "loueur"); sauver(); session = null; verrouille = false; vue = { nom: "accueil" }; rendre(); toast("Démo remise à zéro."); } },
+  reinit: () => { if (confirm("Effacer ce qui a été fait pendant la démo ?")) { ecrireTemoin(""); if (groupeActif()) reinitGroupe(); else S = construireDemo(S.metier || "loueur"); sauver(); session = null; verrouille = false; vue = { nom: "accueil" }; rendre(); toast("Démo remise à zéro."); } },
   imprimer: () => window.print(),
   csv: () => exporterJournal(),
   exportClients: () => exporterClients(),
@@ -1110,7 +1110,7 @@ function lienProfond() { const id = code(location.hash); if (id && art(id)) vue 
   // Démo de groupe (groupe.js) : ?groupe=… ouvre plusieurs établissements ; ?metier=… seul revient à une démo simple
   adresseGroupe(q);
   // Une démo d'essai ouverte (essai.js) n'est pas remplacée ici : essai.js la met de côté avec ses gestes avant de changer de métier
-  if (METIERS[q.get("metier")] && !S.monEssai && (S.variante || S.metier || "loueur") !== q.get("metier")) { const garder = { monnaie: S.monnaie }; S = construireDemo(q.get("metier")); Object.assign(S, garder); sauver(); }
+  if (propre(METIERS, q.get("metier")) && !S.monEssai && (S.variante || S.metier || "loueur") !== q.get("metier")) { const garder = { monnaie: S.monnaie }; S = construireDemo(q.get("metier")); Object.assign(S, garder); sauver(); }
   if (q.get("monnaie") === "XOF" || q.get("monnaie") === "EUR") { S.monnaie = q.get("monnaie"); sauver(); }
   // En démo, un lien direct ouvre la session de la première personne active du profil, sans mot de passe.
   // En production, ces liens n'existent pas : chacun se connecte avec son identifiant et son mot de passe.

@@ -95,7 +95,10 @@ function dansEtab(id, f) {
 // Ouvrir un autre établissement : celui qu'on quitte est rangé, l'autre devient l'état courant.
 function changerEtab(id) {
   const g = groupe(); if (!g || id === g.actif || !g.etats[id]) return false;
+  const avant = S;
   g.etats[g.actif] = S; S = g.etats[id]; g.etats[id] = null; g.actif = id;
+  // La personne qui passe d'un établissement à l'autre garde sa photo.
+  if (session) { const de = avant.equipe.find(x => x.id === session.uid), vers = S.equipe.find(x => x.id === session.uid); if (de && vers && de.nom === vers.nom) { if (de.photo) vers.photo = de.photo; else delete vers.photo; } }
   persisterGroupe(); sauver();
   if (session) { const u = S.equipe.find(x => x.id === session.uid); if (u) session.nom = u.nom; }
   if (typeof garderPhotos === "function") garderPhotos();
