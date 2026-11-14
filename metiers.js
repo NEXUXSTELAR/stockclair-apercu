@@ -569,7 +569,7 @@ const dateFr = iso => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { 
 function tReception() {
   const attendues = S.commandes.filter(c => ["Envoyée", "Reçue en partie"].includes(c.statut));
   return `<h1>Réceptionner une livraison</h1><p class="sous">Choisissez la commande.</p>
-  <ul class="t-liste">${attendues.map(c => `<li><button data-recep="${c.id}">${pic(I.camion)}<span><b>${esc(c.fournisseur)}</b><small>${c.id} · commandé le ${quand(c.date)} · ${c.lignes.length} ligne${c.lignes.length > 1 ? "s" : ""}${c.statut === "Reçue en partie" ? " · reliquat" : ""}</small></span><span class="n">${c.lignes.reduce((t, l) => t + (l.qte - (l.recu || 0)), 0)}</span></button></li>`).join("") || `<li class="vide">Aucune livraison attendue.</li>`}</ul>
+  <ul class="t-liste dp">${attendues.map(c => `<li><button data-recep="${c.id}">${pic(I.camion)}<span><b>${esc(c.fournisseur)}</b><small>${c.id} · commandé le ${quand(c.date)} · ${c.lignes.length} ligne${c.lignes.length > 1 ? "s" : ""}${c.statut === "Reçue en partie" ? " · reliquat" : ""}</small></span><span class="n">${c.lignes.reduce((t, l) => t + (l.qte - (l.recu || 0)), 0)}</span></button></li>`).join("") || `<li class="vide">Aucune livraison attendue.</li>`}</ul>
   <p style="margin-top:14px"><button class="btn" data-recep="libre">Livraison sans commande</button></p>`;
 }
 function tReceptionCmd(id) {
@@ -577,15 +577,15 @@ function tReceptionCmd(id) {
   if (!libre && !c) return tReception();
   const lignes = libre ? S.articles.filter(a => logique(a) !== "pret").map(a => ({ id: a.id, qte: 0, recu: 0 })) : c.lignes;
   const dlc = metier().dlc;
-  return `<h1>${libre ? "Livraison sans commande" : esc(c.fournisseur)}</h1><p class="sous">${libre ? "Indiquez ce qui arrive." : `Commande ${c.id}. Les quantités attendues sont déjà remplies : corrigez seulement si ça ne correspond pas.`}</p>
+  return `<h1>${libre ? "Livraison sans commande" : esc(c.fournisseur)}</h1><p class="sous">${libre ? "Indiquez ce qui arrive." : `Commande ${c.id}. Corrigez seulement ce qui ne correspond pas.`}</p>
   <form data-form="recep" data-cmd-id="${libre ? "" : c.id}">
   ${libre ? `<label class="champ">Fournisseur<select name="fou">${S.fournisseurs.map(f => `<option value="${f.id}">${esc(f.nom)}</option>`).join("")}</select></label>` : ""}
-  <ul class="t-liste">${lignes.map(l => { const a = art(l.id), attendu = l.qte - (l.recu || 0);
+  <ul class="t-liste dp">${lignes.map(l => { const a = art(l.id), attendu = l.qte - (l.recu || 0);
     return `<li><div class="t-retour recep">${img(a)}<span><b>${esc(a.nom)}</b><small>${libre ? "" : `attendu : ${attendu}${parLots(a.id, attendu) ? ", soit " + parLots(a.id, attendu) : ""}`}</small>${dlc && a.dlcJours ? `<label class="dlc">Date limite <input type="date" name="dlc-${a.id}" value="${new Date(Date.now() + a.dlcJours * 86400000).toISOString().slice(0, 10)}"></label>` : ""}</span>
     <input type="number" inputmode="numeric" min="0" name="${a.id}" value="${libre ? 0 : attendu}" aria-label="Reçu : ${esc(a.nom)}"></div></li>`; }).join("")}</ul>
   <label class="btn" style="margin-top:12px">Photographier le bon de livraison<input type="file" accept="image/*" capture="environment" data-photo-bl class="cache"></label>
   <p class="sous" data-bl-etat style="margin-top:6px"></p>
-  <div class="valider"><button type="button" class="btn" data-aller="reception">Annuler</button><button class="btn plein" style="background:var(--retour);border-color:var(--retour);color:#fff">Valider la réception</button></div></form>`;
+  <div class="valider dp-colle"><button type="button" class="btn" data-aller="reception">Annuler</button><button class="btn plein" style="background:var(--retour);border-color:var(--retour);color:#fff">Valider la réception</button></div></form>`;
 }
 let photoBL = "";
 function validerReception(form) {

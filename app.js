@@ -52,6 +52,7 @@ const I = {
   liste: P('<path d="m7 12 4 4 7-8M7 28l4 4 7-8M25 13h16M25 29h16M25 40h10"/>'),
   carnet: P('<rect x="11" y="6" width="30" height="36" rx="3"/><path d="M6 15h9M6 24h9M6 33h9"/><circle cx="27" cy="19" r="4.5"/><path d="M19 33a8 8 0 0 1 16 0"/>'),
   cle: P('<path d="M41 13a10 10 0 0 1-13.6 9.3L12 37.7a4 4 0 0 1-5.7-5.7l15.4-15.4A10 10 0 0 1 35 7l-6 6 1.5 4.5L35 19z"/>'),
+  crayon: P('<path d="M7 41l3-12L31 8l9 9-21 21z"/><path d="M26 13l9 9M10 29l9 9"/>'),
 };
 
 /* ---------------- Thème : clair par défaut, réglé par appareil ---------------- */
@@ -182,7 +183,8 @@ function verifierSeuil(id) {
 const ALIAS = { terrain: "accueil", releve: "accueil", direction: "accueil", abonnement: "installation", scanner: "depot", profil: "accueil" };
 let entree = true, toutVoir = false;
 /* Recherche dans les listes : le texte tapé filtre les lignes sans redessiner l'écran (le clavier reste ouvert). */
-let filtreTexte = "", jr = { type: "tous", q: "", n: 60 };
+const JR_VUES = 8, JR_PAS = 40; // journal : huit lignes à l'arrivée, quarante de plus à chaque « Afficher la suite »
+let filtreTexte = "", jr = { type: "tous", q: "", n: JR_VUES };
 const sansAccent = t => String(t).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 const cherchable = (...t) => esc(sansAccent(t.filter(Boolean).join(" ")));
 const champFiltre = (cible, exemple) => `<label class="recherche">${I.loupe}<span class="cache">Chercher dans la liste</span><input type="search" data-filtre="${cible}" value="${esc(filtreTexte)}" placeholder="${esc(exemple)}" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"></label>`;
@@ -196,7 +198,7 @@ function filtrerListe(champ) {
 }
 function aller(nom, arg, racine) {
   entree = true; toutVoir = false;
-  if (vue.nom !== nom) { filtreTexte = ""; jr = { type: "tous", q: "", n: 60 }; }
+  if (vue.nom !== nom) { filtreTexte = ""; jr = { type: "tous", q: "", n: JR_VUES }; }
   if (racine) pile = [];
   else if (vue.nom !== nom || vue.arg !== arg) pile = pile.concat([vue]).slice(-20);
   vue = { nom, arg }; rendre(); window.scrollTo(0, 0);
@@ -249,7 +251,7 @@ function vConnexion() {
   const e = S.entreprise || {}, memo = identMemorise(), ident = identSaisi !== null ? identSaisi : memo;
   return `${DEMO}<div class="connexion">
     <div class="barre"><div class="marque">${e.logo ? `<img src="${e.logo}" alt="" class="logo-client">` : I.logo}<span>${esc(e.nom || "Stock démo")}</span></div>${boutonReglages}</div>
-    <div class="c-tete"><h1>Bonjour</h1><p class="sous">Entrez l'identifiant et le mot de passe donnés par votre responsable.</p></div>
+    <div class="c-tete"><h1>Bonjour</h1><p class="sous es-etat">Entrez votre identifiant et votre mot de passe.</p></div>
     <form class="c-form verre" data-form="connexion">
       <label class="champ">Identifiant<input name="ident" value="${esc(ident)}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required${msgConnexion ? ' aria-invalid="true"' : ""}></label>
       <label class="champ">Mot de passe${champMdp("current-password")}</label>
@@ -257,8 +259,10 @@ function vConnexion() {
       <p class="message" role="alert">${esc(msgConnexion)}</p>
       <button class="btn plein">Se connecter</button>
     </form>
-    <button class="btn visite c-visite" data-act="tour">${I.fleche}Visite guidée en 2 minutes</button>
-    ${dejaInstallee() ? "" : `<button class="c-installer" data-act="ecranAccueil"><span class="pastille">${I.telecharger}</span><span><b>Installer l'appli</b><small>Une icône sur l'écran d'accueil, en plein écran, même sans réseau</small></span>${I.fleche}</button>`}
+    <section class="es-carte pi-carte pi-nue c-liens"><ul class="es-lignes">
+      ${piLigne({ g: piPic(I.fleche), t: "Visite guidée en 2 minutes", a: `data-act="tour"` })}
+      ${dejaInstallee() ? "" : piLigne({ g: piPic(I.telecharger), t: "Installer l'appli", s: "Une icône sur l'écran d'accueil, même sans réseau", a: `data-act="ecranAccueil"` })}
+    </ul></section>
     ${blocEtabConnexion()}<details class="c-demo" open><summary><span><b>Comptes de démonstration</b><small>Un toucher pour entrer. Chacun a son écran.</small></span></summary>
       <div class="c-comptes">${EQUIPE_DEMO.filter(d => S.equipe.some(x => x.id === d.id && (S.etab || x.identifiant === d.identifiant) && x.empreinte === empreinte(x.id, d.mdp))).map(d => { const u = S.equipe.find(x => x.id === d.id) || d; return `<button type="button" data-remplir="${S.etab ? u.identifiant : d.identifiant}|${d.mdp}" title="Identifiant ${S.etab ? u.identifiant : d.identifiant}, mot de passe ${d.mdp}">${avatar(u)}<span><b>${esc(u.poste)}</b><small>${esc(u.nom)}</small></span>${I.fleche}</button>`; }).join("")}</div>
       <p class="w-note">Dans l'appli livrée, cette liste n'existe pas.</p>
@@ -341,17 +345,18 @@ function activite() {
 function feuilleReglages() {
   const ap = { clair: ["#f2f3f5", "#ffffff", "#f4b223"], sombre: ["#141619", "#1e2125", "#f5b82e"], nuit: ["#111a2c", "#182339", "#e9eef8"], auto: ["#f2f3f5", "#141619", "#f5b82e"] };
   const c = choixTheme();
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tr"><h1 id="tr" style="font-size:26px">Réglages de l'appareil</h1>
-    <p class="sous">Le thème ne change que l'affichage de cet appareil. Les couleurs des actions gardent leur sens : orange, ça part ; vert, ça revient.</p>
-    <div class="themes" role="radiogroup" aria-label="Thème">${Object.entries(THEMES).map(([k, n]) => `<label><input type="radio" name="theme" value="${k}" ${k === c ? "checked" : ""}><span class="apercu" style="background:${ap[k][0]}"><i style="background:${ap[k][1]}"></i><i style="background:${ap[k][2]}"></i></span>${n}</label>`).join("")}</div>
-    ${session ? `<div class="valider" style="grid-template-columns:1fr 1fr"><button class="btn" data-a="verrouiller">${I.cadenas}Verrouiller</button><button class="btn" data-a="sortir">${I.sortir}Se déconnecter</button></div>` : ""}
-    ${dejaInstallee() ? "" : `<div class="valider" style="grid-template-columns:1fr"><button class="btn" data-a="ecranAccueil">${I.telecharger}Installer l'appli sur cet appareil</button></div>`}
-    <div class="valider" style="grid-template-columns:1fr"><button class="btn plein" data-x>Fermer</button></div></div>`);
+  // Quatre thèmes en lignes (le choisi porte la pastille de la marque), puis ce qu'on fait de l'appareil, en lignes aussi.
+  const lignes = (session ? [piLigne({ g: piPic(I.cadenas), t: "Verrouiller", a: `data-a="verrouiller"` }), piLigne({ g: piPic(I.sortir), t: "Se déconnecter", a: `data-a="sortir"` })] : [])
+    .concat(dejaInstallee() ? [] : [piLigne({ g: piPic(I.telecharger), t: "Installer l'appli sur cet appareil", a: `data-a="ecranAccueil"` })]);
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tr" class="pi-f"><h1 id="tr">Réglages de l'appareil</h1>
+    ${sousAide("Le thème ne change que cet appareil.", "Les couleurs des actions gardent leur sens dans tous les thèmes : orange, ça part ; vert, ça revient.")}
+    <div class="themes" role="radiogroup" aria-label="Thème">${Object.entries(THEMES).map(([k, n]) => `<label><input type="radio" name="theme" value="${k}" ${k === c ? "checked" : ""}><span class="apercu" style="background:${ap[k][0]}"><i style="background:${ap[k][1]}"></i><i style="background:${ap[k][2]}"></i></span><span>${n}</span></label>`).join("")}</div>
+    ${lignes.length ? `<ul class="es-lignes pi-f-lignes">${lignes.join("")}</ul>` : ""}
+    <div class="valider" style="grid-template-columns:1fr"><button class="btn" data-x>Fermer</button></div></div>`);
   f.querySelectorAll("input[name=theme]").forEach(i => i.onchange = () => { try { localStorage.setItem(CLE_THEME, i.value); } catch (e) { /* stockage bloqué */ } appliquerTheme(); rendre(); });
   f.querySelector("[data-x]").onclick = () => f.remove();
   f.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { f.remove(); ACTIONS[b.dataset.a](); });
 }
-
 /* =================================================================
    LA COQUE : une même appli pour tous, réglée par rôle et par entreprise.
    Téléphone : barre flottante en bas, Scanner au milieu, « Plus » pour le reste.
@@ -423,8 +428,8 @@ function feuillePlus() {
   const garde = k => (k !== "tournee" || tourneePourMoi()) && (!gestion || SECTIONS[k].g !== "depot" || k === "depot" || !new RegExp(`data-(aller|racine)="${k}"`).test(ecranDepot));
   const permises = sectionsPermises().filter(garde), du = g => permises.filter(k => SECTIONS[k].g === g);
   const grille = l => `<div class="plus-grille">${l.map(k => `<button data-k="${k}" ${k === sec ? 'aria-current="page"' : ""}><span class="pastille">${I[SECTIONS[k].i]}</span>${esc(titreSection(k))}</button>`).join("")}</div>`;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="Tous les écrans">
-    <button class="plus-moi" data-a="monProfil">${avatar(u, true)}<span><b>${esc(u.nom)}</b><small>${esc(u.poste || "")}${session.admin ? " · administre le compte" : ""}</small><small class="plus-fiche">Ma fiche et ma photo</small></span>${I.fleche}</button>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-label="Tous les écrans" class="pi-f pi-plus">
+    <button class="plus-moi" data-a="monProfil">${avatar(u, true)}<span><b>${esc(u.nom)}</b><small>${esc(u.poste || "")}${session.admin ? " · administre le compte" : ""}</small><small class="plus-fiche">Ma fiche et ma photo</small></span><span class="chev">${I.chevron}</span></button>
     ${gestion ? `${grille(du("gestion").concat(du("depot"), du("compte")))}` : Object.entries(GROUPES).map(([g, t]) => du(g).length ? `<h2>${t}</h2>${grille(du(g))}` : "").join("")}
     <div class="valider trois"><button class="btn" data-a="reglages">${I.reglages}Thème</button><button class="btn" data-a="verrouiller">${I.cadenas}Verrouiller</button><button class="btn" data-a="sortir">${I.sortir}Sortir</button></div>
     ${installateur ? `<div class="valider" style="grid-template-columns:1fr"><button class="btn plein" data-a="revenirConfig">Revenir au réglage de l'installation</button></div>` : ""}
@@ -507,6 +512,19 @@ function lignesGerant() {
 // Responsable : ses tâches, une ligne chacune. Une commande à valider ouvre les commandes (ou la feuille « À décider »).
 const lignesResponsable = () => taches().map(x => ({ c: x.c, t: x.t, a: x.a || (permis("commandes") ? `data-aller="commandes"` : `data-act="aDecider"`) }));
 const ligneEs = x => `<li>${x.a ? `<button class="es-ligne" ${x.a}>` : `<div class="es-ligne">`}<i style="--c:var(--${x.c})"></i><span>${esc(x.t)}</span>${x.a ? `<span class="chev">${I.chevron}</span></button>` : `</div>`}</li>`;
+/* Les mêmes composants, pour les autres pages du gérant et du responsable (styles.css : « Refonte : pilotage »).
+   piLigne : g = ce qui se pose à gauche (avatar, vignette, pastille), ou c = la couleur d'une puce ; t = le texte, s = sa seconde ligne grise ;
+   v = la valeur à droite ; a = les attributs du bouton (la ligne porte alors un chevron). t, s et v sont du HTML déjà échappé. */
+const piPic = ic => `<span class="pi-pic">${ic}</span>`;
+const piLigne = x => {
+  const dedans = `${x.g || (x.c ? `<i style="--c:var(--${x.c})"></i>` : "")}<span class="pi-txt">${x.t}${x.s ? `<small>${x.s}</small>` : ""}</span>${x.v !== undefined && x.v !== "" ? `<span class="pi-val">${x.v}</span>` : ""}${x.a && !x.sansChevron ? `<span class="chev">${I.chevron}</span>` : ""}`;
+  return `<li${x.li ? " " + x.li : ""}>${x.a ? `<button class="es-ligne${x.k ? " " + x.k : ""}" ${x.a}>${dedans}</button>` : `<div class="es-ligne${x.k ? " " + x.k : ""}">${dedans}</div>`}</li>`;
+};
+const piCarte = (titre, lignes, vide, cls) => `<section class="es-carte pi-carte${titre ? "" : " pi-nue"}${cls ? " " + cls : ""}">${titre ? `<h2>${titre}</h2>` : ""}${lignes.length ? `<ul class="es-lignes">${lignes.join("")}</ul>` : `<p class="es-rien">${vide || "Rien à signaler."}</p>`}</section>`;
+// Une rangée de raccourcis ronds : [pictogramme, libellé, attributs du bouton] ou, pour un lien, [pictogramme, libellé, attributs, "a"].
+const piRonds = (l, cls) => { l = l.filter(Boolean); return l.length ? `<nav class="es-raccourcis pi-ronds${cls ? " " + cls : ""}" aria-label="Actions">${l.map(([ic, t, a, b]) => `<${b || "button"} ${a}><span class="es-rond">${ic}</span><span>${t}</span></${b || "button"}>`).join("")}</nav>` : ""; };
+// Un volet replié dans une carte de lignes : le détail attend un toucher.
+const piVolet = (titre, corps, attr) => `<li><details class="pi-volet"${attr ? " " + attr : ""}><summary class="es-ligne"><span>${titre}</span><span class="chev">${I.chevron}</span></summary><div class="pi-volet-corps">${corps}</div></details></li>`;
 function vEssentiel() {
   const u = moi(), h = new Date().getHours(), gerant = session.profil === "direction";
   let lignes = gerant ? lignesGerant() : lignesResponsable(), suite = "";
@@ -582,37 +600,38 @@ const zoneDe = a => (S.emplacements.find(x => x.id === a.emp) || {}).nom || "";
 const exempleRecherche = () => S.articles.slice(0, 2).map(a => a.nom.split(/\s+/)[0].toLowerCase()).join(", ") + "…";
 function tChercher(filtre) {
   if (filtre && entree) filtreTexte = filtre;
-  return `<h1>Chercher un objet</h1><p class="sous">Tapez le début du nom, le code de l'étiquette ou la zone. La liste se réduit à mesure.</p>
+  return `<h1>Chercher un objet</h1><p class="sous">Tapez un nom, un code ou une zone.</p>
   <form class="t-ou" data-form="cherche">${champFiltre("#liste-cherche", exempleRecherche())}</form>
-  <ul class="t-liste" id="liste-cherche">${S.articles.map(a => `<li data-cherche="${cherchable(a.nom, a.id, zoneDe(a))}"><button data-objet="${a.id}">${img(a)}<span><b>${esc(a.nom)}</b><small>${esc(zoneDe(a))}</small></span><span class="n">${stock(a.id)}</span></button></li>`).join("")}
+  <ul class="t-liste dp" id="liste-cherche">${S.articles.map(a => `<li data-cherche="${cherchable(a.nom, a.id, zoneDe(a))}"><button data-objet="${a.id}">${img(a)}<span><b>${esc(a.nom)}</b><small>${esc(zoneDe(a))}</small></span><span class="n">${stock(a.id)}</span></button></li>`).join("")}
   <li class="vide" data-rien hidden>Aucun objet ne correspond. Vérifiez l'orthographe, ou tapez le code écrit sous le QR.${boutonCreerRecherche()}</li></ul>`;
 }
 function tJour() {
   const debut = new Date(); debut.setHours(0, 0, 0, 0);
   const l = S.mouvements.filter(m => m.date >= debut.getTime() && m.qui === session.nom).reverse();
   return `<h1>Ma journée</h1><p class="sous">${l.length} enregistrement${l.length > 1 ? "s" : ""} aujourd'hui.</p>
-  <ul class="t-liste">${l.map(m => { const a = art(m.article); return `<li><button data-objet="${a.id}">${img(a)}<span><b>${esc(m.type)} · ${esc(a.nom)}</b><small>${quand(m.date)}${(m.evenement || m.imputation) ? " · " + esc(m.evenement || m.imputation) : ""}</small></span><span class="n">${m.type === "Contrôle" || m.type === "Fiche" ? "" : m.qte}</span></button></li>`; }).join("") || `<li class="vide">Rien encore aujourd'hui. Scannez un objet pour commencer.</li>`}</ul>`;
+  <ul class="t-liste dp">${l.map(m => { const a = art(m.article); return `<li><button data-objet="${a.id}">${img(a)}<span><b>${esc(m.type)} · ${esc(a.nom)}</b><small>${quand(m.date)}${(m.evenement || m.imputation) ? " · " + esc(m.evenement || m.imputation) : ""}</small></span><span class="n">${m.type === "Contrôle" || m.type === "Fiche" ? "" : m.qte}</span></button></li>`; }).join("") || `<li class="vide">Rien encore aujourd'hui. Scannez un objet pour commencer.</li>`}</ul>`;
 }
 function tKits() {
-  return `<h1>Sortir un kit</h1><p class="sous">Choisissez le kit, puis indiquez le nombre et la destination (${motImp()}).</p>
-  <ul class="t-liste">${S.kits.map(k => {
-    const ok = k.lignes.every(([id, q]) => stockIci(id) >= q);
-    return `<li><button data-kit="${k.id}">${pic(I.kit)}<span><b>${esc(k.nom)}</b><small>${k.lignes.map(([id, q]) => q + " × " + esc(art(id).nom)).join(" · ")}</small></span><span class="etat ${ok ? "" : "zero"}"><i></i></span></button></li>`;
+  return `<h1>Sortir un kit</h1><p class="sous">Choisissez le kit.</p>
+  <ul class="t-liste dp">${S.kits.map(k => {
+    // Le contenu du kit se lit dans la feuille qui s'ouvre : ici, ce qu'il faut pour choisir.
+    const ok = k.lignes.every(([id, q]) => stockIci(id) >= q), n = k.lignes.length;
+    return `<li><button data-kit="${k.id}">${pic(I.kit)}<span><b>${esc(k.nom)}</b><small>${n} sorte${n > 1 ? "s" : ""} d'objets${ok ? "" : " · il en manque au dépôt"}</small></span><span class="etat ${ok ? "" : "zero"}"><i></i></span></button></li>`;
   }).join("")}</ul>`;
 }
 function tRecuperer() {
   const parEv = {};
   dehors().forEach(d => { (parEv[d.evenement] = parEv[d.evenement] || []).push(d); });
-  return `<h1>${esc(V("retourTitre") || "Retours")}</h1><p class="sous">Touchez ce qui revient. Tout ce qui était parti s'affiche : vous ne corrigez que ce qui manque.</p>
-  <ul class="t-liste">${Object.entries(parEv).map(([ev, l]) => `<li><button data-ev="${esc(ev)}">${pic(I.camion)}<span><b>${esc(ev)}</b><small>${l.length} sorte${l.length > 1 ? "s" : ""} d'objets</small></span><span class="n">${l.reduce((t, d) => t + d.qte, 0)}</span></button></li>`).join("") || `<li class="vide">Tout est rentré au dépôt.</li>`}</ul>`;
+  return `<h1>${esc(V("retourTitre") || "Retours")}</h1><p class="sous">Touchez ce qui revient.</p>
+  <ul class="t-liste dp">${Object.entries(parEv).map(([ev, l]) => `<li><button data-ev="${esc(ev)}">${pic(I.camion)}<span><b>${esc(ev)}</b><small>${l.length} sorte${l.length > 1 ? "s" : ""} d'objets</small></span><span class="n">${l.reduce((t, d) => t + d.qte, 0)}</span></button></li>`).join("") || `<li class="vide">Tout est rentré au dépôt.</li>`}</ul>`;
 }
 function tRetourEvenement(ev) {
   const l = dehors().filter(d => d.evenement === ev);
   if (!l.length) return `<h1>Tout est revenu</h1><button class="btn" data-aller="terrain">Accueil</button>`;
   return `<h1>${esc(ev)}</h1><p class="sous">Corrigez seulement ce qui manque.</p>
-  <form data-form="retourEv"><ul class="t-liste">${l.map(d => { const a = art(d.article); return `<li><div class="t-retour">${img(a)}<span><b>${esc(a.nom)}</b><small>parti : ${d.qte}</small></span>
+  <form data-form="retourEv"><ul class="t-liste dp">${l.map(d => { const a = art(d.article); return `<li><div class="t-retour">${img(a)}<span><b>${esc(a.nom)}</b><small>parti : ${d.qte}</small></span>
     <input type="number" inputmode="numeric" min="0" max="${d.qte}" name="${a.id}" value="${d.qte}" aria-label="Revenus : ${esc(a.nom)}"></div></li>`; }).join("")}</ul>
-  <div class="valider"><button type="button" class="btn" data-aller="recuperer">Annuler</button><button class="btn plein" style="background:var(--retour);border-color:var(--retour);color:#fff">Valider le retour</button></div></form>`;
+  <div class="valider dp-colle"><button type="button" class="btn" data-aller="recuperer">Annuler</button><button class="btn plein" style="background:var(--retour);border-color:var(--retour);color:#fff">Valider le retour</button></div></form>`;
 }
 /* Le bon remis au client est la sortie papier du magasinier. */
 function tuilePreparer() {
@@ -651,31 +670,44 @@ function bMateriel(f) {
   const l = (f === "controle" ? ctrl : S.articles.filter(a => f === "tous" || (f === "alerte" && ["zero", "bas"].includes(etat(a).c)) || (f === "dehors" && ids.has(a.id)))).filter(dansLieuStock);
   const vide = f === "alerte" ? "Rien à commander : tout est au-dessus du seuil." : f === "dehors" ? "Tout est rentré." : f === "controle" ? "Aucun contrôle en retard ni à faire dans les 30 jours." : "Aucun objet pour l'instant.";
   const compte = k => k === "retires" ? S.retires.length : k === "tous" ? S.articles.length : k === "alerte" ? S.articles.filter(a => ["zero", "bas"].includes(etat(a).c)).length : k === "controle" ? ctrl.length : ids.size;
-  return `<h1>${esc(titreSection("materiel"))}</h1>${outilsArticles()}
+  // Une phrase d'état, les filtres, puis huit lignes ; la suite attend un toucher (une recherche porte toujours sur toute la liste).
+  const nAl = compte("alerte"), replie = !stockEntier && !filtreTexte.trim() && l.length > ST_LIGNES + 2;
+  const phrase = f === "tous" && !filtreLieuActif() ? `${nbEs(S.articles.length, "objet", "objets")} · ${nAl ? `${nAl} à commander` : "rien à commander"}.` : `${nbEs(l.length, "objet", "objets")} sur ${S.articles.length}.`;
+  return `<h1>${esc(titreSection("materiel"))}</h1>${ST_COL}<p class="es-etat st-etat">${phrase}</p>${outilsArticles()}
   <div class="outils-liste"><div class="filtres">${[["tous", "Tout"], ["alerte", "À commander"]].concat(aDesPrets() ? [["dehors", V("chez")]] : [], suiviControles() ? [["controle", "À contrôler"]] : [], aDesRetires() ? [["retires", "Retirés"]] : []).map(([k, t]) => `<button data-filtre-materiel="${k}" aria-pressed="${f === k}">${t}<span class="nb">${compte(k)}</span></button>`).join("")}</div>
   ${champFiltre("#liste-materiel", exempleRecherche())}${boutonNouvelArticle()}${choixLieuStock()}<span class="filtre-compte" data-filtre-compte role="status"></span></div>
-  <ul class="b-liste" id="liste-materiel">${l.map(a => { const e = etat(a); return `<li data-cherche="${cherchable(a.nom, a.id, zoneDe(a), e.t)}"><button class="l" data-fiche="${a.id}">${img(a)}<span><b>${esc(a.nom)}</b><small><span class="code">${a.id}</span> · <span class="etat ${e.c}"><i></i>${e.t}</span>${pastilleControle(a, f === "controle")}</small></span><span class="l-zone">${esc(zoneDe(a))}</span><span class="n">${qteStock(a)}</span></button></li>`; }).join("")}
-  <li class="vide" data-rien ${l.length ? "hidden" : ""}>${l.length ? "Aucun objet ne correspond à cette recherche." : filtreLieuActif() ? `Rien ici : ${esc(nomLieu(lieuStock))}.` : vide}</li></ul>`;
+  <div class="${replie ? "st-replie" : ""}" data-st-replie><ul class="b-liste st-liste" id="liste-materiel">${l.map(a => { const e = etat(a); return `<li data-cherche="${cherchable(a.nom, a.id, zoneDe(a), e.t)}"><button class="l" data-fiche="${a.id}">${img(a)}<span><b>${esc(a.nom)}</b><small><span class="etat ${e.c}"><i></i>${e.t}</span><span class="st-code"> · <span class="code">${a.id}</span></span>${pastilleControle(a, f === "controle")}</small></span><span class="l-zone">${esc(zoneDe(a))}</span><span class="n">${qteStock(a)}</span></button></li>`; }).join("")}
+  <li class="vide" data-rien ${l.length ? "hidden" : ""}>${l.length ? "Aucun objet ne correspond à cette recherche." : filtreLieuActif() ? `Rien ici : ${esc(nomLieu(lieuStock))}.` : vide}</li></ul>
+  ${replie ? stSuite(l.length - ST_LIGNES, "autres objets") : ""}</div>`;
 }
 function bFiche(id) {
   const a = art(id); if (!a) return "<p>Introuvable.</p>";
   if (a.retire) return ficheRetiree(a);
-  const q = stock(id), e = etat(a), d = dehors(id);
-  return `<div class="fiche">${img(a)}<div>
-    <div class="entete"><div><span class="code">${a.id}</span><h1>${esc(a.nom)}</h1><span class="etat ${e.c}"><i></i>${e.t}</span></div>
-    ${a.type === "equip" ? "" : anneau(q, a.cible, couleurEtat(e), q, "sur " + a.cible, true)}</div>
+  const q = stock(id), e = etat(a), d = dehors(id), unique = a.type === "equip", ctrl = etatControle(a), aFaire = !!ctrl && ctrl.c !== "ok";
+  // La photo à côté du nom, un seul chiffre en grand (ce qu'il y a en stock), les gestes courants en raccourcis ronds,
+  // le détail en lignes, et ce qui sert rarement (modifier, retirer, régler un contrôle) derrière « Autres actions ».
+  const ronds = [{ a: `data-mvt="Entrée"`, i: I.retour, t: "Entrée en stock" }, { a: `data-mvt="Compter"`, i: I.compter, t: "Compter" }, { a: `data-mvt="Perte"`, i: I.perte, t: "Perte" }, { a: `data-atelier="${a.id}"`, i: I.cle, t: "Envoyer à l'atelier" }]
+    .concat(aFaire ? [{ a: `data-ctrl-fait="${a.id}"`, i: PICTO_CONTROLE, t: "Contrôle fait" }] : []);
+  const autres = `${boutonTransfert(a, true)}${boutonEnvoiEtab(a, true)}${aFaire ? "" : boutonControleFait(a, true)}${boutonsControle(a, true)}${boutonsArticle(a)}`;
+  const ligne = (t, v, cls) => `<div><dt>${t}</dt><dd${cls ? ` class="${cls}"` : ""}>${v}</dd></div>`;
+  return `${ST_COL}<div class="fiche st-fiche">
+    <div class="st-tete">${img(a)}<div><h1>${esc(a.nom)}</h1><p class="st-sousnom"><span class="etat ${e.c}"><i></i>${e.t}</span> · <span class="code">${a.id}</span></p></div></div>
+    ${unique ? "" : `<div class="es-hero"><small>En stock</small><b class="es-chiffre">${q.toLocaleString("fr-FR")}</b><p>sur un niveau normal de ${a.cible.toLocaleString("fr-FR")}</p>
+      <span class="st-barre" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, a.cible ? Math.round(q / a.cible * 100) : 0))}%;background:${couleurEtat(e)}"></i></span></div>`}
     ${ligneControle(a)}
-    <dl><div><dt>En stock</dt><dd>${q}</dd></div>${logique(a) === "pret" ? `<div><dt>${V("chez")}</dt><dd>${d.reduce((t, x) => t + x.qte, 0)}</dd></div>` : `<div><dt>${V("sortiesMot")} en 30 jours</dt><dd>${S.mouvements.filter(m => m.article === id && m.type === "Sortie" && m.date >= Date.now() - 30 * 86400000).reduce((t, m) => t + m.qte, 0)}</dd></div>`}
-      <div><dt>Seuil d'alerte</dt><dd>${a.seuil}</dd></div><div><dt>Niveau normal</dt><dd>${a.cible}</dd></div>
-      ${droit("prix") ? `<div><dt>Prix unitaire</dt><dd>${argent(a.prix)}</dd></div><div><dt>Valeur au dépôt</dt><dd>${argent(Math.max(0, q) * a.prix)}</dd></div>` : ""}
-      ${a.serie ? `<div><dt>N° de série</dt><dd class="code">${a.serie}</dd></div>` : ""}${detailsControle(a)}</dl>
-    <div class="boutons">${totalAtelier(id) ? `<p class="sous" style="width:100%;margin:0 0 6px">À l'atelier : ${aLAtelier(id).map(x => x.qte + " " + (x.motif === "Au nettoyage" ? "au nettoyage" : "en réparation")).join(", ")}</p>` : ""}<button class="btn petit" data-atelier="${a.id}">Envoyer à l'atelier</button><button class="btn petit" data-mvt="Entrée">Entrée en stock</button><button class="btn petit" data-mvt="Compter">Compter</button><button class="btn petit" data-mvt="Perte">Perte</button>${boutonTransfert(a, true)}${boutonEnvoiEtab(a, true)}${boutonsControle(a)}${boutonsArticle(a)}</div>
-  </div></div>
+    ${stRonds(ronds, "boutons")}
+    ${totalAtelier(id) ? `<p class="es-etat st-atelier">À l'atelier : ${aLAtelier(id).map(x => x.qte + " " + (x.motif === "Au nettoyage" ? "au nettoyage" : "en réparation")).join(", ")}.</p>` : ""}
+    <dl>${unique ? ligne("En stock", q) : ""}${logique(a) === "pret" ? ligne(V("chez"), d.reduce((t, x) => t + x.qte, 0)) : ligne(`${V("sortiesMot")} en 30 jours`, S.mouvements.filter(m => m.article === id && m.type === "Sortie" && m.date >= Date.now() - 30 * 86400000).reduce((t, m) => t + m.qte, 0))}
+      ${droit("prix") ? (unique ? "" : ligne("Valeur au dépôt", argent(Math.max(0, q) * a.prix))) + ligne("Prix unitaire", argent(a.prix)) : ""}
+      ${unique ? "" : ligne("Seuil d'alerte", a.seuil)}
+      ${a.serie ? ligne("Numéro de série", a.serie, "code") : ""}${detailsControle(a)}</dl>
+    ${autres ? `<details class="st-plus"><summary>Autres actions</summary><div class="boutons">${autres}</div></details>` : ""}
+  </div>
   ${blocLieuxFiche(a)}
   ${blocRentabilite(a)}
-  ${metier().dlc && lotsEnStock(id).length ? `<h2>Lots en stock</h2><table class="t"><tbody>${lotsEnStock(id).map(l => `<tr><td>Date limite au ${dateFr(l.dlc)}</td><td class="n">${l.qte}</td></tr>`).join("")}</tbody></table>` : ""}
-  ${d.length ? `<h2>Chez qui</h2><table class="t"><tbody>${d.map(x => `<tr><td>${esc(x.evenement)}</td><td class="n">${x.qte}</td></tr>`).join("")}</tbody></table>` : ""}
-  <h2>Historique</h2>${tableMouvements(S.mouvements.filter(m => m.article === id).slice(-10).reverse(), false)}`;
+  ${metier().dlc && lotsEnStock(id).length ? `<h2>Lots en stock</h2><table class="t st-lignes"><tbody>${lotsEnStock(id).map(l => `<tr><td>Date limite au ${dateFr(l.dlc)}</td><td class="n">${l.qte}</td></tr>`).join("")}</tbody></table>` : ""}
+  ${d.length ? `<h2>Chez qui</h2><table class="t st-lignes"><tbody>${d.map(x => `<tr><td>${esc(x.evenement)}</td><td class="n">${x.qte}</td></tr>`).join("")}</tbody></table>` : ""}
+  ${stHistorique(id, 10)}`;
 }
 function tableMouvements(l, avecObjet) {
   if (!l.length) return `<p class="vide">Aucun mouvement.</p>`;
@@ -697,15 +729,15 @@ function lignesJournal() {
 }
 function corpsJournal() {
   const l = lignesJournal(), filtre = jr.type !== "tous" || jr.q.trim();
-  return `<p class="liste-compte" role="status">${l.length.toLocaleString("fr-FR")} mouvement${l.length > 1 ? "s" : ""}${filtre ? ` sur ${S.mouvements.length.toLocaleString("fr-FR")}` : ""}${l.length > jr.n ? ` · les ${jr.n} plus récents sont affichés` : ""}</p>
+  return `<p class="liste-compte" role="status">${l.length.toLocaleString("fr-FR")} mouvement${l.length > 1 ? "s" : ""}${filtre ? ` sur ${S.mouvements.length.toLocaleString("fr-FR")}` : ""}, du plus récent au plus ancien</p>
   ${l.length ? tableMouvements(l.slice(0, jr.n), true) : `<p class="vide">Aucun mouvement ne correspond. Essayez un autre mot, ou revenez sur « Tout ».</p>`}
-  ${l.length > jr.n ? `<p style="margin-top:12px"><button class="btn" data-journal-plus>Afficher ${Math.min(60, l.length - jr.n)} mouvements de plus</button></p>` : ""}`;
+  ${l.length > jr.n ? `<p class="st-suite"><button class="es-lien" data-journal-plus>Afficher la suite</button></p>` : ""}`;
 }
 function brancherJournal() {
   const boite = $("[data-journal]"); if (!boite) return;
-  const plus = boite.querySelector("[data-journal-plus]"); if (plus) plus.onclick = () => { jr.n += 60; boite.innerHTML = corpsJournal(); brancherJournal(); };
+  const plus = boite.querySelector("[data-journal-plus]"); if (plus) plus.onclick = () => { jr.n += JR_PAS; boite.innerHTML = corpsJournal(); brancherJournal(); };
 }
-const bJournal = () => `<h1>Journal</h1><p class="sous">Tout est gardé. Une erreur se corrige par un nouveau mouvement, jamais en effaçant.</p>
+const bJournal = () => `<h1>Journal</h1>${ST_COL}${sousAide("Tout est gardé, rien ne s'efface.", "Une erreur se corrige par un nouveau mouvement, jamais en effaçant.")}
   <div class="outils-liste"><div class="filtres">${[["tous", "Tout"], ["sorties", "Sorties"], ["entrees", "Entrées et retours"], ["pertes", "Pertes"], ["comptages", "Comptages"]].concat(lieuxActifs() ? [["transferts", "Transferts"]] : [], suiviControles() ? [["controles", "Contrôles"]] : []).map(([k, t]) => `<button data-journal-type="${k}" aria-pressed="${jr.type === k}">${t}</button>`).join("")}</div>
   <label class="recherche">${I.loupe}<span class="cache">Chercher dans le journal</span><input type="search" data-journal-q value="${esc(jr.q)}" placeholder="Objet, personne, ${esc((V("imp") || "lieu").toLowerCase())}…" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"></label></div>
   <div data-journal>${corpsJournal()}</div>`;
@@ -723,19 +755,29 @@ function brouillons() {
 }
 function bCommandes() {
   const b = Object.entries(brouillons());
-  return `<h1>Commandes</h1><p class="sous">Préparées seules. Au-dessus de ${argent(SEUIL_VALIDATION_EUR)}, la direction valide.</p>
+  // Qui valide voit d'abord ce qui attend son accord. Un seul bouton plein sur l'écran : le premier geste possible.
+  const accords = droit("valider") ? S.commandes.filter(c => c.statut === "À valider") : [];
+  let plein = true; const fort = () => { const c = plein ? " plein" : ""; plein = false; return c; };
+  const phrase = accords.length ? nbEs(accords.length, "commande attend votre accord.", "commandes attendent votre accord.") : b.length ? nbEs(b.length, "commande est prête.", "commandes sont prêtes.") : "Rien à commander pour l'instant.";
+  const passees = S.commandes.slice().reverse(), puce = { "Reçue": "retour", "À valider": "attention", "Reçue en partie": "attention" };
+  return `<h1>Commandes</h1>${ST_COL}${sousAide(phrase, `Les commandes se préparent seules, d'après le seuil d'alerte de chaque objet. Au-dessus de ${argent(SEUIL_VALIDATION_EUR)}, la direction donne son accord avant l'envoi.`)}
+  ${accords.map(c => `<section class="bon st-bon st-accord"><header><b>${esc(c.fournisseur)}</b><span>Attend votre accord</span></header>
+      <table class="t"><tbody>${c.lignes.map(x => `<tr><td>${x.qte} × ${esc(art(x.id).nom)}</td><td class="n">${argent(x.qte * art(x.id).prix)}</td></tr>`).join("")}</tbody></table>
+      <p class="st-total"><span>Total hors taxes</span><b>${argent(c.total)}</b></p>
+      <button class="btn${fort()}" data-valider="${c.id}">Valider la commande</button></section>`).join("")}
   ${b.map(([fid, l]) => {
     const f = S.fournisseurs.find(x => x.id === fid);
     const tot = l.reduce((t, x) => t + x.qte * art(x.id).prix, 0);
     const attente = S.commandes.find(c => c.fid === fid && c.statut === "À valider");
-    return `<section class="bon"><header><b>${esc(f.nom)}</b><span>Brouillon · délai ${f.delai} j</span></header>
-      <table class="t"><tbody>${l.map(x => `<tr><td>${esc(art(x.id).nom)}${parLots(x.id, x.qte) ? `<br><small>${parLots(x.id, x.qte)}</small>` : ""}</td><td class="n">${x.qte}</td><td class="n">${argent(x.qte * art(x.id).prix)}</td></tr>`).join("")}</tbody></table>
-      <p style="text-align:right;font-weight:800;font-size:20px">${argent(tot)} HT</p>
-      ${attente ? `<p class="sous">En attente de l'accord de la direction.</p>` : tot > SEUIL_VALIDATION_EUR ? `<button class="btn" data-cmd="${fid}" data-statut="À valider">Demander l'accord de la direction</button>` : `<button class="btn plein" data-cmd="${fid}" data-statut="Envoyée">Envoyer au fournisseur</button>`}
+    return `<section class="bon st-bon"><header><b>${esc(f.nom)}</b><span>Brouillon · livré en ${f.delai} jour${f.delai > 1 ? "s" : ""}</span></header>
+      <table class="t"><tbody>${l.map(x => `<tr><td>${x.qte} × ${esc(art(x.id).nom)}${parLots(x.id, x.qte) ? `<br><small>${parLots(x.id, x.qte)}</small>` : ""}</td><td class="n">${argent(x.qte * art(x.id).prix)}</td></tr>`).join("")}</tbody></table>
+      <p class="st-total"><span>Total hors taxes</span><b>${argent(tot)}</b></p>
+      ${attente ? `<p class="es-etat">En attente de l'accord de la direction.</p>` : tot > SEUIL_VALIDATION_EUR ? `<button class="btn${fort()}" data-cmd="${fid}" data-statut="À valider">Demander l'accord de la direction</button>` : `<button class="btn${fort()}" data-cmd="${fid}" data-statut="Envoyée">Envoyer au fournisseur</button>`}
     </section>`;
-  }).join("") || `<p class="vide">Rien à commander.</p>`}
+  }).join("")}
   <h2>Commandes passées</h2>
-  ${S.commandes.length ? `<table class="t cmdes"><tbody>${S.commandes.slice().reverse().map(c => `<tr><td>${quand(c.date)}<br><small>${esc(c.fournisseur)}</small></td><td>${esc(c.statut)}</td><td class="n">${["Envoyée", "Reçue en partie"].includes(c.statut) ? `<button class="btn petit" data-recevoir="${c.id}">${c.statut === "Envoyée" ? "Réceptionner" : "Réceptionner le reste"}</button>` : ""}</td></tr>`).join("")}</tbody></table>` : `<p class="vide">Aucune pour l'instant.</p>`}`;
+  ${passees.length ? `<div class="${passees.length > ST_LIGNES + 2 ? "st-replie" : ""}" data-st-replie><ul class="b-liste st-liste st-cmdes">${passees.map(c => `<li><div class="l"><i class="st-puce" style="--c:var(--${puce[c.statut] || "neutre"})"></i><span><b>${esc(c.fournisseur)}</b><small>${esc(c.statut)} · ${quand(c.date)}</small></span>${["Envoyée", "Reçue en partie"].includes(c.statut) ? `<button class="btn petit" data-recevoir="${c.id}">${c.statut === "Envoyée" ? "Réceptionner" : "Réceptionner le reste"}</button>` : c.total ? `<span class="n">${argent(c.total)}</span>` : ""}</div></li>`).join("")}</ul>
+  ${passees.length > ST_LIGNES + 2 ? stSuite(passees.length - ST_LIGNES, "commandes suivantes") : ""}</div>` : `<p class="es-rien">Aucune pour l'instant.</p>`}`;
 }
 function creerCommande(fid, statut) {
   const l = brouillons()[fid], f = S.fournisseurs.find(x => x.id === fid);
@@ -747,17 +789,19 @@ function creerCommande(fid, statut) {
 function bDocs() {
   const loueur = (S.metier || "loueur") === "loueur", cp = complet();
   const papier = [["etiquettes", I.etiquette, "Planche d'étiquettes", "QR à imprimer et coller"], ["inventairePapier", I.compter, "Fiche d'inventaire papier", "Pour compter sans téléphone, zone par zone"]];
-  const argent_ = [["rapport", I.argent, "Rapport du mois", "Valeur, pertes, refacturable, à imprimer ou garder en PDF"], ["refacturer", I.perte, "Manquants à refacturer", `Par ${motImp()}, avec les montants et les factures`]];
-  const excel = [["csv", I.excel, "Journal des mouvements", cp ? "Excel : qui, quoi, quand, pour qui, avec la valeur" : "Excel : tous les gestes enregistrés"], ["finAnnee", I.excel, "Inventaire de fin d'année", cp ? "Excel en trois onglets : résumé, stock valorisé, pertes" : "Excel : stock valorisé et pertes de l'année"]]
-    .concat(cp && (loueur || (S.clientsLoc || []).length) ? [["exportClients", I.excel, motClients() + " et " + motImps(), `Excel : coordonnées, cautions, casse par ${motImp()}`]] : []);
-  const registre = suiviControles() ? [["controles", PICTO_CONTROLE, "Registre des contrôles", "Échéances, dernier contrôle et par qui, à imprimer"]] : [];
-  const d = session.profil === "direction" ? argent_.concat(registre, excel) : papier.concat(registre, argent_.slice(1), excel);
+  const argent_ = [["rapport", I.argent, "Rapport du mois", "Valeur du stock, pertes, part refacturable"], ["refacturer", I.perte, "Manquants à refacturer", `Par ${motImp()}, avec les montants et les factures`]];
+  const excel = [["csv", I.excel, "Journal des mouvements", cp ? "Qui, quoi, quand, pour qui, avec la valeur" : "Tous les gestes enregistrés"], ["finAnnee", I.excel, "Inventaire de fin d'année", cp ? "Trois onglets : résumé, stock valorisé, pertes" : "Stock valorisé et pertes de l'année"]]
+    .concat(cp && (loueur || (S.clientsLoc || []).length) ? [["exportClients", I.excel, motClients() + " et " + motImps(), `Coordonnées, cautions, casse par ${motImp()}`]] : []);
+  const registre = suiviControles() ? [["controles", PICTO_CONTROLE, "Registre des contrôles", "Échéances, dernier contrôle et par qui"]] : [];
+  const imprimer = session.profil === "direction" ? argent_.concat(registre) : papier.concat(registre, argent_.slice(1));
   const acte = k => ["csv", "finAnnee", "exportClients"].includes(k);
-  return `<h1>Documents</h1><p class="sous">À imprimer, à envoyer ou à transmettre.</p>
-  <div class="docs">${d.map(([k, ic, t, s_]) => `<button class="doc-carte" ${acte(k) ? `data-act="${k}"` : `data-aller="${k}"`}><span class="pastille ${acte(k) ? "excel" : ""}">${ic}</span><span><b>${t}</b><small>${s_}</small></span></button>`).join("")}</div>
-  <p class="w-note docs-note">Les fichiers Excel s'ouvrent aussi dans Google Sheets et LibreOffice.</p>`;
+  // Deux cartes de lignes : ce qui s'imprime, ce qui se télécharge. Chaque ligne garde sa classe « doc-carte » (les fiches clients la visent).
+  const carte = (titre, l) => `<section class="es-carte pi-carte"><h2>${titre}</h2><ul>${l.map(([k, ic, t, s_]) => `<li><button class="doc-carte" ${acte(k) ? `data-act="${k}"` : `data-aller="${k}"`}><span class="pastille ${acte(k) ? "excel" : ""}">${ic}</span><span><b>${t}</b><small>${s_}</small></span><span class="chev">${acte(k) ? I.telecharger : I.chevron}</span></button></li>`).join("")}</ul></section>`;
+  return `<h1>Documents</h1><div class="pi-page"><p class="es-etat">À imprimer, à envoyer ou à transmettre.</p>
+  <div class="docs pi-docs">${carte("À imprimer ou à garder en PDF", imprimer)}${carte("Fichiers Excel", excel)}</div>
+  <p class="pi-note docs-note">Les fichiers Excel s'ouvrent aussi dans Google Sheets et LibreOffice.</p></div>`;
 }
-const retourDocs = `<p class="pas-imprimer"><button class="lien" data-aller="docs">← Documents</button> · <button class="lien" data-act="imprimer">Imprimer ou enregistrer en PDF</button></p>`;
+const retourDocs = `<p class="pas-imprimer pi-outils-doc"><button class="es-lien" data-aller="docs">${I.precedent}Documents</button><button class="btn petit plein" data-act="imprimer">${I.imprimer}Imprimer ou enregistrer en PDF</button></p>`;
 const bEtiquettes = id => id && art(id) ? etiquetteSeule(id) : `${retourDocs}<div class="pas-imprimer"><h1>Planche d'étiquettes</h1><p class="sous">Scanné avec l'appareil photo, le QR ouvre directement la fiche de l'objet.</p></div>
   ${blocPlanEtiquetage()}<h2 class="pas-imprimer">La planche à imprimer</h2>
   <div class="planche">${S.articles.map(a => `<div class="etiquette"><div data-qr="${a.id}"></div><div><b>${esc(a.nom)}</b><span class="code">${a.id}</span><small class="proprio">Propriété de ${esc((S.entreprise || {}).nom || "l'entreprise")}</small></div></div>`).join("")}</div>`;
@@ -779,30 +823,35 @@ let periode = 30;
 /* Équipe et accès : qui peut entrer, avec quel rôle, et le journal des connexions */
 const ROLES = { terrain: "Terrain : dépôt et camion", chauffeur: "Chauffeur : livraisons et reprises", bureau: "Bureau : stock et commandes", direction: "Direction : argent et décisions" };
 function dAcces() {
-  return `${sousAide("Chacun a son accès. Il se retire d'un geste.", "Chacun entre avec son identifiant et son mot de passe. Chaque mouvement porte son nom. Retirer un accès prend une seconde ; les mouvements de la personne restent dans le journal.")}
-  <div class="bloc">${S.equipe.map(u => `<div class="personne ${u.actif ? "" : "inactif"}">${avatar(u)}<div><b>${esc(u.nom)}${u.admin ? " · administre le compte" : ""}</b><small><span class="code">${esc(u.identifiant || "")}</span> · ${esc(u.poste)} · ${ROLES[u.role]}${u.actif ? (u.empreinte ? "" : " · invitation en attente") : " · accès retiré"}</small></div>
-    <div class="actions">${u.id === session.uid ? `<button class="btn petit" data-nouveau-code="${u.id}">Changer mon mot de passe</button>` : `${u.actif ? `<button class="btn petit ${u.empreinte ? "" : "plein"}" data-inviter="${u.id}">${u.empreinte ? "Nouveau lien d'accès" : "Inviter"}</button>` : ""}<label class="inter"><input type="checkbox" data-acces="${u.id}" ${u.actif ? "checked" : ""} aria-label="Accès de ${esc(u.nom)}"><span></span></label>`}</div></div>`).join("")}</div>
-  <p style="margin-top:12px"><button class="btn plein petit" data-act="ajouterPersonne">Ajouter une personne</button></p>
-  <p class="w-note">Un mot de passe oublié ? « Nouveau lien d'accès » : la personne en choisit un autre elle-même. Personne d'autre ne le connaît, pas même vous.</p>
-  <h2>Sécurité</h2>
-  <div class="bloc"><div class="module"><label for="verrou"><b>Verrouillage automatique</b></label><select id="verrou" data-verrou>${[[1, "Après 1 minute"], [5, "Après 5 minutes"], [15, "Après 15 minutes"], [0, "Jamais"]].map(([v, n]) => `<option value="${v}" ${S.reglages.verrou === v ? "selected" : ""}>${n}</option>`).join("")}</select><p>Sans toucher l'écran, le téléphone redemande le mot de passe de la même personne.</p></div>
-  <div class="module"><b>Mots de passe faux</b><span></span><p>Après 5 erreurs, il faut attendre 30 secondes. Chaque essai est noté dans le journal des connexions.</p></div></div>
-  <details class="art-details acces-volet"><summary>Journal des connexions</summary>
-  ${S.connexions.length ? `<div class="defile"><table class="t"><thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th class="n">Résultat</th></tr></thead><tbody>${S.connexions.slice(0, 20).map(c => `<tr><td>${quand(c.date)}</td><td>${esc(c.nom)}</td><td>${esc(c.motif)}</td><td class="n"><span class="resultat ${c.ok ? "ok" : "ko"}">${c.ok ? "Réussie" : "Refusée"}</span></td></tr>`).join("")}</tbody></table></div>` : `<p class="vide">Aucune connexion enregistrée pour l'instant.</p>`}</details>
-  <details class="art-details acces-volet"><summary>Comment vos données sont protégées</summary>
-  <ul class="puces">
+  // Une ligne par personne : son identifiant, son poste, son rôle ; l'interrupteur retire l'accès d'un geste. Le bouton du lien est dessous.
+  const ligne = u => {
+    const moiMeme = u.id === session.uid, e = u.actif ? (u.empreinte ? "" : "invitation en attente") : "accès retiré";
+    const bouton = moiMeme ? `<button class="btn petit" data-nouveau-code="${u.id}">Changer mon mot de passe</button>` : u.actif ? `<button class="btn petit" data-inviter="${u.id}">${u.empreinte ? "Nouveau lien d'accès" : "Inviter"}</button>` : "";
+    return `<li class="personne ${u.actif ? "" : "inactif"}"><div class="es-ligne">${avatar(u)}<span class="pi-txt"><b>${esc(u.nom)}</b><small><span class="code">${esc(u.identifiant || "")}</span> · ${[esc(u.poste), ROLES[u.role].split(" : ")[0], u.admin ? "administre le compte" : "", e].filter(Boolean).join(" · ")}</small></span>
+      ${moiMeme ? "" : `<label class="inter"><input type="checkbox" data-acces="${u.id}" ${u.actif ? "checked" : ""} aria-label="Accès de ${esc(u.nom)}"><span></span></label>`}</div>
+      ${bouton ? `<div class="actions pi-ev-docs">${bouton}</div>` : ""}</li>`;
+  };
+  const connexions = S.connexions.length ? `<div class="defile"><table class="t"><thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th class="n">Résultat</th></tr></thead><tbody>${S.connexions.slice(0, 20).map(c => `<tr><td>${quand(c.date)}</td><td>${esc(c.nom)}</td><td>${esc(c.motif)}</td><td class="n"><span class="resultat ${c.ok ? "ok" : "ko"}">${c.ok ? "Réussie" : "Refusée"}</span></td></tr>`).join("")}</tbody></table></div>` : `<p>Aucune connexion enregistrée pour l'instant.</p>`;
+  return `<section class="es-carte pi-carte pi-nue pi-acces"><ul class="es-lignes">${S.equipe.map(ligne).join("")}</ul></section>
+  <div class="pi-boutons"><button class="btn plein" data-act="ajouterPersonne">${I.equipe}Ajouter une personne</button></div>
+  <p class="pi-note">Un mot de passe oublié ? « Nouveau lien d'accès » : la personne en choisit un autre elle-même. Personne d'autre ne le connaît, pas même vous.</p>
+  ${piCarte("Sécurité", [
+    `<li><div class="es-ligne pi-reglage"><span class="pi-txt"><label for="verrou">Verrouillage automatique</label><small>Sans toucher l'écran, le téléphone redemande le mot de passe.</small></span><select id="verrou" data-verrou>${[[1, "Après 1 minute"], [5, "Après 5 minutes"], [15, "Après 15 minutes"], [0, "Jamais"]].map(([v, n]) => `<option value="${v}" ${S.reglages.verrou === v ? "selected" : ""}>${n}</option>`).join("")}</select></div></li>`,
+    piLigne({ t: "Mots de passe faux", s: "Après 5 erreurs, il faut attendre 30 secondes. Chaque essai est noté." }),
+    piVolet("Journal des connexions", connexions),
+    piVolet("Comment vos données sont protégées", `<ul class="puces">
     <li>La liste de l'équipe n'est jamais affichée à l'entrée : il faut connaître son identifiant.</li>
     <li>Chacun choisit son mot de passe à partir d'un lien d'invitation, valable 7 jours et une seule fois. Aucun mot de passe ne circule par message.</li>
     <li>Le mot de passe est vérifié par le serveur et n'est jamais gardé sur le téléphone. Bureau et direction peuvent aussi entrer avec leur compte Google ou Microsoft, avec la validation en deux étapes.</li>
     <li>Les droits sont appliqués par le serveur : une personne sans le droit « prix » ne reçoit même pas les prix.</li>
     <li>Le journal des mouvements ne s'efface pas. Une erreur se corrige par un nouveau mouvement.</li>
     <li>Un téléphone perdu se coupe à distance. Les données restent dans le compte de l'entreprise.</li>
-  </ul></details>`;
+  </ul>`)])}`;
 }
 const MDP_FAIBLES = ["123456", "1234567", "12345678", "azerty", "azertyuiop", "motdepasse", "password", "000000", "111111"];
 function feuilleCode(uid) {
   const u = uid ? S.equipe.find(x => x.id === uid) : null;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tc"><h1 id="tc" style="font-size:26px">${u ? (u.id === session.uid ? "Changer mon mot de passe" : "Nouveau mot de passe pour " + esc(u.nom)) : "Ajouter une personne"}</h1>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tc" class="pi-f"><h1 id="tc">${u ? (u.id === session.uid ? "Changer mon mot de passe" : "Nouveau mot de passe pour " + esc(u.nom)) : "Ajouter une personne"}</h1>
     ${u ? `<p class="sous">${u.id === session.uid ? "L'ancien ne marchera plus. Personne d'autre ne le connaît." : "L'ancien ne marchera plus. Donnez le nouveau en main propre, jamais par message."}</p>` : `
     <label class="champ">Prénom<input name="nom" autocomplete="off" maxlength="30"></label>
     <label class="champ">Identifiant<input name="ident" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="prenom ou prenom.nom"></label>
@@ -856,36 +905,31 @@ function dInstallation() {
   const restantes = Math.max(0, OFFRE.heures - inst.heuresUtilisees), enCours = jours > 0 && restantes > 0;
   // Les montants ne s'affichent que sur l'appareil de l'installateur : la démo publique ne montre aucun prix, comme le site.
   const prix = ESPACE;
-  // Trois lignes d'abord (l'offre, l'assistance, le bouton) ; le détail et les fonctions à ajouter s'ouvrent d'un geste.
+  // D'abord deux lignes (l'offre, l'assistance) et le bouton ; les demandes, les fonctions et le détail sont des lignes qui s'ouvrent d'un toucher.
   const installes = Object.entries(CATALOGUE).filter(([k]) => actif(k)), aAjouter = Object.entries(CATALOGUE).filter(([k]) => !actif(k));
-  const detail = m => m.detailClient || m.detail;
-  return `<h1>Votre installation</h1>
-  <div class="bloc inst-resume">
-    <div class="module"><b>Offre ${OFFRE.nom}</b><span class="statut">payée une fois</span><p>Livrée le ${new Date(inst.livreLe).toLocaleDateString("fr-FR")}${prix ? `, ${fmt(OFFRE[unite])} HT` : ""}. Rien à payer chaque mois.</p></div>
-    <div class="module"><b>Assistance incluse</b><span class="statut ${enCours ? "s-revenue" : "s-partie"}">${enCours ? "en cours" : "terminée"}</span>
-      <p>${enCours ? `Encore ${jours} jour${jours > 1 ? "s" : ""} et ${String(restantes).replace(".", ",")} h sur ${OFFRE.heures} h.` : `Terminée le ${new Date(fin).toLocaleDateString("fr-FR")}.`}</p></div>
-  </div>
-  <p style="margin-top:12px"><button class="btn plein" data-act="demanderIntervention">Demander une intervention</button></p>
-  <details class="art-details inst-detail"><summary>Voir le détail</summary>
-    <div class="module"><b>Ce que couvre l'assistance</b><span></span><p>Les corrections de notre paramétrage et les questions d'utilisation, pas les nouvelles fonctions.</p></div>
-    <div class="module"><b>Intervention ensuite</b><span>${prix ? fmt(TARIF_INTERVENTION[unite]) + " HT / h" : "sur devis"}</span><p>À distance, par quart d'heure, 30 minutes au minimum, toujours sur devis accepté.</p></div>
-    <div class="module"><b>Vos données</b><span>à vous</span><p>L'appli et les données vous appartiennent. Elles sont gardées dans votre propre compte Google : un seul compte suffit, un compte gratuit convient. Rien n'est dû chaque mois à Stockclair, ni par personne.</p></div>
-  </details>
-  ${(S.interventions || []).length ? `<h2>Vos demandes</h2><table class="t"><tbody>${S.interventions.slice().reverse().map(i => `<tr><td>${quand(i.date)}<br><small>${esc(i.texte)}</small></td><td class="n">${i.incluse ? "dans l'assistance" : "devis envoyé"}</td></tr>`).join("")}</tbody></table>` : ""}
-  <h2>Ce qui est installé</h2>
-  ${installes.length ? `<ul class="inst-liste">${installes.map(([, m]) => `<li><details><summary><i aria-hidden="true"></i>${m.nom}</summary><p>${detail(m)}.</p></details></li>`).join("")}</ul>` : `<p class="vide">Aucune fonction en plus de l'offre.</p>`}
-  ${aAjouter.length ? `<details class="art-details inst-ajout"><summary>Ajouter une fonction</summary>
-    <p class="sous">Une fonction se paie une fois, sur devis, et reste à vous.</p>
-    ${aAjouter.map(([k, m]) => `<div class="module"><b>${m.nom}</b><button class="btn petit" data-devis="${k}">Demander un devis</button><p>${detail(m)}.${prix ? ` Environ ${fmt(m[unite])} HT, une fois.` : ""}</p></div>`).join("")}</details>` : ""}
-  <h2>Réglages</h2>
-  <div class="module"><b>Vos coordonnées sur les documents</b><button class="btn petit" data-act="coordonnees">Modifier</button><p>${S.entreprise && S.entreprise.nom ? esc(S.entreprise.nom) : "Nom, adresse, téléphone et logo en haut des bons et des factures."}</p></div>
-  ${FRANCE_SEULE ? "" : `<div class="module"><label for="monnaie"><b>Monnaie des montants</b></label><select id="monnaie" data-monnaie><option value="EUR" ${S.monnaie === "EUR" ? "selected" : ""}>Euro</option><option value="XOF" ${S.monnaie === "XOF" ? "selected" : ""}>Franc CFA</option></select><p>Pour les prix, les pertes et les factures.</p></div>`}`;
+  const detail = m => m.detailClient || m.detail, etat = (t, c) => `<span class="pi-etatl"${c ? ` style="--c:var(--${c})"` : ""}>${t}</span>`;
+  return `<h1>Votre installation</h1><div class="pi-page">
+  <p class="es-etat">${enCours ? "Votre assistance incluse est en cours." : "Votre assistance incluse est terminée."}</p>
+  <section class="es-carte pi-carte pi-nue inst-resume"><ul class="es-lignes">
+    ${piLigne({ t: `Offre ${OFFRE.nom}`, s: `Livrée le ${new Date(inst.livreLe).toLocaleDateString("fr-FR")}${prix ? `, ${fmt(OFFRE[unite])} HT` : ""}. Rien à payer chaque mois.`, v: etat("payée une fois") })}
+    ${piLigne({ t: "Assistance incluse", s: enCours ? `Encore ${jours} jour${jours > 1 ? "s" : ""} et ${String(restantes).replace(".", ",")} h sur ${OFFRE.heures} h.` : `Terminée le ${new Date(fin).toLocaleDateString("fr-FR")}.`, v: etat(enCours ? "en cours" : "terminée", enCours ? "retour" : "") })}
+  </ul></section>
+  <div class="pi-boutons"><button class="btn plein" data-act="demanderIntervention">Demander une intervention</button></div>
+  ${(S.interventions || []).length ? piCarte("Vos demandes", S.interventions.slice().reverse().map(i => piLigne({ t: esc(i.texte), s: quand(i.date), v: etat(i.incluse ? "dans l'assistance" : "devis envoyé") }))) : ""}
+  ${piCarte("Ce qui est installé", installes.map(([, m]) => piVolet(m.nom, `<p>${detail(m)}.</p>`)), "Aucune fonction en plus de l'offre.", "inst-liste-carte")}
+  ${aAjouter.length ? piCarte("À ajouter, une fois et sur devis", aAjouter.map(([k, m]) => piVolet(m.nom, `<p>${detail(m)}.${prix ? ` Environ ${fmt(m[unite])} HT, une fois.` : ""} Une fonction ajoutée reste à vous.</p><button class="btn petit" data-devis="${k}">Demander un devis</button>`)), "", "inst-ajout") : ""}
+  ${piCarte("Bon à savoir", [
+    piVolet("Ce que couvre l'assistance", `<p>Les corrections de notre paramétrage et les questions d'utilisation, pas les nouvelles fonctions.</p>`),
+    piVolet("Une intervention ensuite", `<p>${prix ? fmt(TARIF_INTERVENTION[unite]) + " HT par heure" : "Sur devis"}. À distance, par quart d'heure, 30 minutes au minimum, toujours sur devis accepté.</p>`),
+    piVolet("Vos données sont à vous", `<p>L'appli et les données vous appartiennent. Elles sont gardées dans votre propre compte Google : un seul compte suffit, un compte gratuit convient. Rien n'est dû chaque mois à Stockclair, ni par personne.</p>`)], "", "inst-detail")}
+  ${piCarte("Réglages", [piLigne({ t: "Vos coordonnées sur les documents", s: S.entreprise && S.entreprise.nom ? esc(S.entreprise.nom) : "Nom, adresse, téléphone et logo en haut des bons et des factures.", a: `data-act="coordonnees"` })]
+    .concat(FRANCE_SEULE ? [] : [`<li><div class="es-ligne pi-reglage"><span class="pi-txt"><label for="monnaie">Monnaie des montants</label><small>Pour les prix, les pertes et les factures.</small></span><select id="monnaie" data-monnaie><option value="EUR" ${S.monnaie === "EUR" ? "selected" : ""}>Euro</option><option value="XOF" ${S.monnaie === "XOF" ? "selected" : ""}>Franc CFA</option></select></div></li>`]))}</div>`;
 }
 // Un ajout de module est une nouvelle fonction : toujours sur devis, jamais dans l'assistance incluse.
 function feuilleIntervention(module) {
   const inst = S.installation || { livreLe: Date.now(), heuresUtilisees: 0 };
   const incluse = !module && Date.now() < inst.livreLe + OFFRE.jours * 86400000 && inst.heuresUtilisees < OFFRE.heures;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="ti"><h1 id="ti" style="font-size:26px">${module ? "Demander un devis" : "Demander une intervention"}</h1>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="ti" class="pi-f"><h1 id="ti">${module ? "Demander un devis" : "Demander une intervention"}</h1>
     <p class="sous">${module ? "Nous vous envoyons un devis. Rien n'est ajouté ni facturé avant votre accord." : incluse ? "Votre assistance incluse est en cours : si la demande entre dedans, elle ne vous coûte rien." : "Votre assistance incluse est terminée : vous recevrez un devis avant tout travail."}</p>
     <label class="champ">Votre demande<textarea name="texte" rows="4" maxlength="400" style="border-radius:10px;border:2px solid var(--trait-fort);padding:10px;font:inherit;background:var(--carte);color:var(--encre)">${module ? esc("Ajout de la fonction « " + CATALOGUE[module].nom + " ».") : ""}</textarea></label>
     <div class="valider"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Envoyer</button></div></div>`);
@@ -910,8 +954,8 @@ function dejaInstallee() { return matchMedia("(display-mode: standalone)").match
 function feuilleEcranAccueil() {
   if (inviteInstall) { const i = inviteInstall; inviteInstall = null; i.prompt(); return; }
   const ordi = !/Android|iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.maxTouchPoints < 2;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tea"><h1 id="tea" style="font-size:26px">Installer l'appli</h1>
-    <p class="sous">Aucun magasin d'applications. L'appareil pose une icône, et l'appli s'ouvre ensuite dans sa propre fenêtre, même sans réseau.</p>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tea" class="pi-f"><h1 id="tea">Installer l'appli</h1>
+    ${sousAide("Aucun magasin d'applications : l'appareil pose une icône.", "L'appli s'ouvre ensuite dans sa propre fenêtre, en plein écran, même sans réseau.")}
     ${ordi ? `<div class="eq-qr"><div data-qr-appli role="img" aria-label="QR code de l'appli"></div><p><b>Sur votre téléphone</b>Visez ce QR code avec l'appareil photo : l'appli s'ouvre, il reste à l'installer.</p></div>` : ""}
     ${pasInstallation()}
     <div class="valider" style="grid-template-columns:1fr"><button class="btn plein" data-x>J'ai compris</button></div></div>`);
@@ -1001,7 +1045,7 @@ const grandEcart = (compte, attendu) => { const e = Math.abs(compte - attendu); 
 function confirmerEcart(lignes, oui) {
   const un = lignes.length === 1 ? lignes[0] : null;
   $$(".toast:not(.avec-bouton)").forEach(x => x.remove()); // un message encore affiché ne doit pas cacher les boutons
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tce">
+  const f = ouvrirFeuille(`<div class="f-geste" role="dialog" aria-modal="true" aria-labelledby="tce">
     <h1 id="tce" style="font-size:26px">${un ? `Vous avez compté ${un.compte}, l'appli en attendait ${un.attendu}. C'est bien ça ?` : `${lignes.length} comptages sont très loin de ce que l'appli attendait. C'est bien ça ?`}</h1>
     ${un ? `<p class="sous">${esc(un.nom)}</p>` : `<ul class="ecarts">${lignes.map(l => `<li><b>${esc(l.nom)}</b><span>compté ${l.compte}, attendu ${l.attendu}</span></li>`).join("")}</ul>`}
     <div class="valider pile"><button class="btn plein" data-oui>${un ? `Oui, il y en a ${un.compte}` : "Oui, enregistrer ces quantités"}</button><button class="btn" data-x>${un ? "Non, je recompte" : "Non, je corrige"}</button></div></div>`);
@@ -1020,7 +1064,7 @@ function feuille(id, type) {
   const evs = ["Prêt", "Sortie", "Surplus"].includes(type) ? S.evenements : type === "Retour" ? d.map(x => x.evenement) : type === "Perte" ? ["Au dépôt"].concat(d.map(x => x.evenement)) : null;
   // Raccourcis : pour ce qui se compte par dizaines, jamais au-delà de ce qui est là. Une perte se compte à l'unité.
   const plafond = max !== null ? max : type === "Retour" ? Math.max(...d.map(x => x.qte)) : null;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tf">
+  const f = ouvrirFeuille(`<div class="f-geste" role="dialog" aria-modal="true" aria-labelledby="tf">
     <div class="tete">${img(a)}<div><span class="code">${a.id}</span><br><b>${esc(a.nom)}</b></div></div>
     <h1 id="tf" style="font-size:26px">${titre}</h1>
     <div class="compteur"><button data-pas="-1" aria-label="Un de moins">−</button><input type="number" inputmode="numeric" min="0" value="${defaut}" aria-label="Quantité"><button data-pas="1" aria-label="Un de plus">+</button></div>
@@ -1079,7 +1123,7 @@ function feuille(id, type) {
 function manquants(ev, liste, rendus) {
   // Rentrer une partie d'un lot est un geste normal (deux voyages) : le titre constate, le choix sans conséquence passe en premier.
   const total = liste.reduce((t, [, q]) => t + q, 0);
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tmq"><h1 id="tmq" style="font-size:26px">${total > 1 ? `${total} ne sont pas de retour` : "1 n'est pas de retour"}</h1>
+  const f = ouvrirFeuille(`<div class="f-geste" role="dialog" aria-modal="true" aria-labelledby="tmq"><h1 id="tmq" style="font-size:26px">${total > 1 ? `${total} ne sont pas de retour` : "1 n'est pas de retour"}</h1>
     <p>${liste.map(([id, q]) => `<b>${q}</b> × ${esc(art(id).nom)}`).join("<br>")}</p>
     <div class="t-actions manque-choix"><button class="btn plein" data-c="attente">${total > 1 ? "Le reste reviendra plus tard" : "Il reviendra plus tard"}</button>
     <button class="btn" data-c="perte">${I.perte}<span>Cassé ou perdu<small>Noté à refacturer</small></span></button></div></div>`);
@@ -1093,7 +1137,9 @@ function manquants(ev, liste, rendus) {
 }
 function feuilleKit(kid) {
   const k = S.kits.find(x => x.id === kid);
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true"><h1 style="font-size:26px">${esc(k.nom)}</h1><p class="sous">Combien de kits ?</p>
+  const f = ouvrirFeuille(`<div class="f-geste" role="dialog" aria-modal="true" aria-labelledby="tk"><h1 id="tk" style="font-size:26px">${esc(k.nom)}</h1>
+    <details class="dp-contenu"><summary>Voir ce que contient le kit</summary><p>${k.lignes.map(([id, q]) => `${q} × ${esc(art(id).nom)}`).join("<br>")}</p></details>
+    <p class="sous">Combien de kits ?</p>
     <div class="compteur"><button data-pas="-1" aria-label="Un de moins">−</button><input type="number" inputmode="numeric" min="1" value="1" aria-label="Nombre de kits"><button data-pas="1" aria-label="Un de plus">+</button></div>
     ${choixEvenement(S.evenements)}
     <div class="valider colle"><button class="btn" data-x>Annuler</button><button class="btn plein" data-ok>Valider</button></div></div>`);
@@ -1194,8 +1240,8 @@ function brancher() {
   // Après un filtre, l'écran est redessiné : on rend le focus au filtre choisi (clavier, lecteur d'écran).
   const refocus = sel => { const n = $(sel); if (n) n.focus({ preventScroll: true }); };
   $$("[data-filtre-materiel]").forEach(b => b.onclick = () => { const k = b.dataset.filtreMateriel; vue = { nom: "materiel", arg: k }; rendre(); refocus(`[data-filtre-materiel="${k}"]`); });
-  $$("[data-journal-type]").forEach(b => b.onclick = () => { const k = b.dataset.journalType; jr.type = k; jr.n = 60; rendre(); refocus(`[data-journal-type="${k}"]`); });
-  $$("[data-journal-q]").forEach(c => c.oninput = () => { jr.q = c.value; jr.n = 60; $("[data-journal]").innerHTML = corpsJournal(); brancherJournal(); });
+  $$("[data-journal-type]").forEach(b => b.onclick = () => { const k = b.dataset.journalType; jr.type = k; jr.n = JR_VUES; rendre(); refocus(`[data-journal-type="${k}"]`); });
+  $$("[data-journal-q]").forEach(c => c.oninput = () => { jr.q = c.value; jr.n = JR_VUES; $("[data-journal]").innerHTML = corpsJournal(); brancherJournal(); });
   brancherJournal();
   // Sur ordinateur, la recherche de l'en-tête : un code ouvre l'objet, un mot filtre la liste.
   const fra = $('[data-form="rapide"]'); if (fra) fra.onsubmit = e => {
@@ -1249,7 +1295,7 @@ const ACTIONS = {
   aDecider: () => feuilleDecider(),
   tachesAFaire: () => feuilleTaches(x => !x.bouton),
   tachesToutes: () => feuilleTaches(),
-  retour: () => { const p = pile.pop(); vue = p || { nom: "accueil" }; rendre(); window.scrollTo(0, 0); },
+  retour: () => { const p = pile.pop(), parent = PARENT[ALIAS[vue.nom] || vue.nom]; vue = p || { nom: parent || "accueil" }; rendre(); window.scrollTo(0, 0); },
   sortir: garderMessage => { session = null; verrouille = false; clearTimeout(minuteur); if (garderMessage !== true) msgConnexion = ""; vue = { nom: "accueil" }; pile = []; tableauEntier = false; $$(".feuille").forEach(f => f.remove()); rendre(); window.scrollTo(0, 0); },
   verrouiller: () => { verrouille = true; msgConnexion = ""; clearTimeout(minuteur); rendre(); },
   reglages: () => feuilleReglages(),

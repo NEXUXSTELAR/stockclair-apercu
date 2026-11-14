@@ -13,7 +13,7 @@ const JOUR = 86400000;
 // Sur téléphone on dessine plus étroit pour que le texte reste lisible (12 px réels).
 // Dans un bloc d'une demi-largeur (ordinateur), on dessine pour la moitié de la page.
 const LARGE = () => {
-  const m = document.querySelector("main"), w = (m ? m.clientWidth : Math.min(window.innerWidth, 1160)) - 34;
+  const m = document.querySelector("main"), w = (m ? m.clientWidth : Math.min(window.innerWidth, 1160)) - (modeQuestions ? 64 : 34);
   return Math.max(300, Math.min(600, window.largeurDemi ? w / 2 - 8 : w));
 };
 const court = (t, n) => t.length > n ? t.slice(0, n - 1) + "…" : t;
@@ -22,7 +22,18 @@ const jourCourt = t => new Date(t).toLocaleDateString("fr-FR", { weekday: "short
 const entier = n => Math.round(n).toLocaleString("fr-FR");
 const legende = l => `<div class="legende">${l.map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join("")}</div>`;
 // La question tient en une ligne. Quand elle vient avec une explication ([question, explication]), celle-ci s'ouvre par le bouton « ? ».
-const cadre = (titre, question, corps) => `<section class="graphe"><h3>${titre}</h3>${Array.isArray(question) ? sousAide(question[0], question[1]).replace('class="aide"', 'class="aide q"') : `<p class="q">${question}</p>`}${corps}</section>`;
+// Sur l'écran Analyses (modeQuestions), une courbe est repliée derrière sa question : la question se touche, la courbe s'ouvre,
+// et l'explication se lit dessous.
+let modeQuestions = false, courbeOuverte = null;
+const cadre = (titre, question, corps) => modeQuestions
+  ? `<details class="pi-q"><summary class="es-ligne"><span>${Array.isArray(question) ? question[0] : titre}</span><span class="chev">${I.chevron}</span></summary><div class="graphe"><h3>${titre}</h3>${corps}<p class="q">${Array.isArray(question) ? question[1] : question}</p></div></details>`
+  : `<section class="graphe"><h3>${titre}</h3>${Array.isArray(question) ? sousAide(question[0], question[1]).replace('class="aide"', 'class="aide q"') : `<p class="q">${question}</p>`}${corps}</section>`;
+// Une seule courbe ouverte à la fois ; l'écran se souvient de laquelle quand on change de période.
+document.addEventListener("toggle", e => {
+  const d = e.target; if (!d.matches || !d.matches("details.pi-q")) return;
+  if (d.open) { courbeOuverte = d.dataset.courbe; document.querySelectorAll("details.pi-q[open]").forEach(x => { if (x !== d) x.open = false; }); }
+  else if (courbeOuverte === d.dataset.courbe) courbeOuverte = "";
+}, true);
 // Barre aux extrémités arrondies du côté opposé à la ligne de base
 function barre(x, y, w, h, coul, vers, tip) {
   if (h <= 0) return "";
@@ -203,7 +214,10 @@ function gValeurStock() {
   pts.forEach((p, i) => { svg += `<rect x="${x(i) - 5}" y="${base - haut}" width="10" height="${haut}" fill="transparent" data-tip="${esc(jourCourt(p.t) + " : " + argent(p.v) + " au dépôt")}"/>`; });
   [0, 30, pts.length - 1].forEach(i => { svg += `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle"}">${new Date(pts[i].t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</text>`; });
   const d = prem.v ? Math.round((der.v - prem.v) / prem.v * 100) : 0;
-  return cadre("Valeur du stock, 60 jours", `Combien d'argent dort au dépôt. ${d === 0 ? "Stable" : (d > 0 ? "+" : "") + d + " %"} depuis le ${new Date(prem.t).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.`,
+  const depuis = `depuis le ${new Date(prem.t).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+  return cadre("Valeur du stock, 60 jours", modeQuestions
+      ? ["Combien d'argent dort au dépôt ?", d === 0 ? `La valeur est stable ${depuis}.` : `${Math.abs(d)} % de ${d > 0 ? "plus" : "moins"} ${depuis}.`]
+      : `Combien d'argent dort au dépôt. ${d === 0 ? "Stable" : (d > 0 ? "+" : "") + d + " %"} ${depuis}.`,
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Valeur du stock sur 60 jours">${svg}</svg>`);
 }
 

@@ -1837,3 +1837,512 @@ h2 { font-size: 17px; margin: 24px 0 8px; }
 /* Feuille « Plus » : libellés en graisse normale, seul l'écran courant est en gras (comme le menu de gauche) */
 .plus-grille button[aria-current="page"] { font-weight: 700; }
 /* ===== Fin : accueil essentiel ===== */
+
+/* ===== Refonte : pilotage ===== */
+/* Les pages du gérant et du responsable (Analyses, Documents, Réservations, Clients, Équipe, Installation, Groupe),
+   les feuilles « Plus » et « Réglages », la connexion et l'invitation. Même dessin que l'accueil essentiel :
+   une phrase d'état, un seul élément fort, des lignes séparées par un filet dans une carte blanche, presque pas de gras.
+   Les composants de l'accueil essentiel sont repris tels quels (.es-carte, .es-lignes, .es-ligne, .es-hero, .es-raccourcis, .es-lien) ;
+   ce qui suit ne fait que les compléter. */
+
+/* --- Colonne : le contenu ne s'étire pas sur ordinateur --- */
+.pi-page { max-width: 720px; margin: 0 auto; }
+.pi-page.pi-large { max-width: 960px; }
+main.b-main:has(> .pi-page) > h1:first-child { max-width: 720px; margin-left: auto; margin-right: auto; }
+main.b-main:has(> .pi-large) > h1:first-child { max-width: 960px; }
+.pi-page > .es-etat:first-child, .pi-page > .aide:first-child { margin-top: 0; }
+.pi-page .aide { margin: 0; font-size: 17px; }
+.pi-page .aide p { margin: 0 0 6px; max-width: 60ch; }
+.pi-page > .es-carte:first-child { margin-top: 4px; }
+.pi-page h2.pi-h2 { margin: 26px 0 0; font-size: 15px; font-weight: 400; color: var(--gris); }
+.pi-page h2.pi-h2 + .es-carte { margin-top: 8px; }
+
+/* --- Ligne de liste : avatar, vignette ou pastille à gauche ; texte et seconde ligne grise ; valeur ou chevron à droite --- */
+.es-ligne .pi-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.es-ligne .pi-txt small { display: block; margin-top: 1px; color: var(--gris); font-size: 15px; line-height: 1.35; font-weight: 400; }
+.es-ligne .pi-val { flex: none; max-width: 46%; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.es-ligne .pi-val small { display: block; color: var(--gris); font-size: 13px; line-height: 1.3; font-weight: 400; }
+.es-ligne > span.avatar:first-of-type, .es-ligne > span.pi-pic:first-of-type { flex: none; }
+.es-ligne > .avatar { font-weight: 400; }
+.es-ligne > .vignette { flex: none; width: 44px; border-radius: var(--r); }
+.pi-pic { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--fond); display: flex; align-items: center; justify-content: center; }
+.pi-pic svg { width: 22px; height: 22px; }
+.es-carte.pi-carte { padding-bottom: 4px; }
+.es-carte.pi-carte > h2 + .es-rien { padding-top: 8px; }
+.es-carte.pi-nue { padding-top: 4px; }
+.pi-rouge { color: var(--alerte); }
+/* Un état s'écrit en gris, avec une puce de couleur quand il a un sens d'action */
+.pi-etatl { color: var(--gris); font-size: 15px; font-weight: 400; white-space: nowrap; }
+.pi-etatl::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--c, var(--trait-fort)); }
+/* Un volet replié dans une carte : même hauteur qu'une ligne, le chevron tourne */
+.pi-volet > summary { list-style: none; cursor: pointer; }
+.pi-volet > summary::-webkit-details-marker { display: none; }
+.pi-volet > summary .chev svg { transform: rotate(90deg); transition: transform .15s; }
+.pi-volet[open] > summary .chev svg { transform: rotate(-90deg); }
+.pi-volet[open] > summary { font-weight: 700; }
+.pi-volet-corps { padding: 0 0 14px; color: var(--gris); font-size: 15px; }
+.pi-volet-corps p { margin: 0 0 8px; }
+/* Raccourcis ronds d'une page : ceux de l'accueil essentiel, alignés à gauche quand il y en a moins de quatre */
+.es-raccourcis.pi-ronds { margin-top: 18px; }
+.es-raccourcis.pi-ronds a { display: grid; justify-items: center; align-content: start; gap: 8px; color: var(--encre); padding: 4px 0; min-height: 88px; font-size: 13px; line-height: 1.2; text-align: center; text-decoration: none; border-radius: var(--r); }
+.pi-boutons { display: grid; gap: 10px; margin: 18px 0 0; }
+.pi-boutons .btn { width: 100%; }
+.pi-note { margin: 12px 0 0; color: var(--gris); font-size: 13px; line-height: 1.4; }
+.pi-page .es-pied { margin-top: 10px; }
+@media (min-width: 720px) {
+  .pi-boutons { grid-auto-flow: column; grid-auto-columns: max-content; justify-content: start; }
+  .pi-boutons .btn { width: auto; min-width: 220px; }
+}
+@media (hover: hover) { summary.es-ligne:hover > span:first-of-type { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* --- Analyses : la période, un chiffre en grand, deux lignes, puis une question par courbe --- */
+.pi-an-tete, .pi-courbes { display: block; }
+.pi-an-tete .segments { margin: 0; }
+.pi-trio { display: block; background: none; border-radius: 0; }
+.pi-trio > div { padding: 0; text-align: left; }
+.pi-trio small { font-size: 15px; }
+.pi-trio .es-hero { margin-top: 20px; }
+.pi-trio .es-hero small { display: block; font-size: 15px; font-weight: 400; color: var(--gris); }
+.pi-trio b.es-chiffre { display: block; font-size: clamp(44px, 13vw, 60px); margin: 4px 0 6px; white-space: nowrap; }
+.pi-trio b.es-chiffre.es-long { font-size: clamp(28px, 8.4vw, 48px); }
+.pi-trio .es-ligne .pi-txt small { font-size: 15px; }
+.pi-courbes { background: var(--carte); border-radius: var(--r-grand); padding: 14px 16px 4px; margin-top: 18px; }
+.pi-courbes > h2 { margin: 0; font-size: 15px; font-weight: 400; color: var(--gris); }
+.pi-courbes > section.w { background: none; padding: 0; border-radius: 0; }
+.pi-courbes > section.w + section.w { border-top: 1px solid var(--trait); }
+.pi-q > summary { list-style: none; cursor: pointer; min-height: 52px; }
+.pi-q > summary::-webkit-details-marker { display: none; }
+.pi-q > summary .chev svg { transform: rotate(90deg); transition: transform .15s; }
+.pi-q[open] > summary .chev svg { transform: rotate(-90deg); }
+.pi-q[open] > summary { font-weight: 700; }
+.pi-q .graphe { background: none; border-radius: 0; padding: 0 0 14px; margin: 0; }
+.pi-q .graphe h3 { font-size: 15px; font-weight: 400; color: var(--gris); margin: 0 0 10px; }
+.pi-q .graphe .q { margin: 10px 0 0; font-size: 15px; }
+.pi-q .graphe .q b { font-weight: 400; }
+.pi-q .legende { font-size: 13px; color: var(--gris); gap: 6px 14px; }
+.pi-q .legende i { width: 10px; height: 10px; border-radius: 50%; }
+.pi-autres { margin-top: 12px; }
+@media (min-width: 720px) { .pi-courbes { padding: 20px 24px 8px; } }
+
+/* --- Documents : une carte par famille, une ligne par document --- */
+.pi-docs { display: block; }
+.pi-docs .doc-carte { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 0; background: none; border-radius: 0; font: inherit; font-size: 17px; line-height: 1.3; }
+.pi-docs .doc-carte:hover { box-shadow: none; }
+.pi-docs .doc-carte .pastille, .pi-docs .doc-carte .pastille.excel { flex: none; width: 40px; height: 40px; background: var(--fond); color: var(--encre); }
+.pi-docs .doc-carte .pastille svg { width: 22px; height: 22px; }
+.pi-docs .doc-carte b { font-weight: 400; }
+.pi-docs .doc-carte small { display: block; margin-top: 1px; font-size: 15px; line-height: 1.35; }
+.pi-docs .doc-carte > span:nth-child(2) { flex: 1; min-width: 0; }
+.pi-docs .doc-carte .chev { flex: none; display: flex; color: var(--gris); }
+.pi-docs .doc-carte .chev svg { width: 18px; height: 18px; }
+.pi-docs li + li { border-top: 1px solid var(--trait); }
+.pi-docs ul { list-style: none; margin: 0; padding: 0; }
+@media (hover: hover) { .pi-docs .doc-carte:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+/* Autour d'un document à imprimer : un retour discret, un seul bouton */
+.pi-outils-doc { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 auto 14px; max-width: 800px; }
+.pi-outils-doc .es-lien { margin-left: -10px; }
+.pi-outils-doc .btn { width: auto; }
+/* --- Réservations et clients --- */
+.w .pi-trio > div { padding: 0; text-align: left; }
+.pi-page .champ { margin: 0; font-weight: 400; color: var(--gris); }
+.pi-page .champ input, .pi-page .champ select, .pi-page .dispo-dates input { border-width: 1px; font-weight: 400; color: var(--encre); }
+.pi-page .champ input:focus, .pi-page .champ select:focus { border-color: var(--marque); box-shadow: 0 0 0 1px var(--marque); }
+.pi-dispo .dispo-dates { margin: 10px 0 8px; }
+.pi-dispo .dispo-dates .btn { min-height: 48px; }
+.pi-gris { color: var(--gris); font-weight: 400; }
+.pi-infos .es-ligne .pi-val { max-width: 64%; font-weight: 400; }
+.pi-tete { display: flex; gap: 14px; align-items: center; margin: 4px 0 0; }
+.pi-tete h1 { margin: 0; overflow-wrap: anywhere; }
+.pi-tete .es-etat { margin: 4px 0 0; font-size: 15px; overflow-wrap: anywhere; }
+.pi-tete .avatar { font-weight: 400; }
+.pi-ev-docs { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 12px; }
+.pi-page .btn.petit { min-height: 44px; }
+.pi-page .btn:not(.plein) { border-width: 1px; }
+/* --- Équipe, accès et sécurité, fiche d'une personne --- */
+.pi-page .segments.pi-onglets { margin: 16px 0 0; }
+.es-lignes.eq-grille { display: block; }
+.es-ligne.eq-carte:hover { box-shadow: none; }
+.es-ligne .eq-nom { display: block; }
+.es-ligne .eq-nom b { display: block; font-size: 17px; font-weight: 400; }
+.pi-acces .personne { display: block; padding: 0; border-bottom: 0; }
+.pi-acces .personne b { font-weight: 400; }
+.pi-acces .personne .code { font-size: 14px; }
+.pi-acces .inter { flex: none; }
+.pi-acces .personne .actions { padding-left: 52px; }
+.pi-reglage select { flex: none; max-width: 48%; height: 44px; border-radius: var(--r); border: 1px solid var(--trait-fort); padding: 0 8px; background: var(--carte); color: var(--encre); }
+.pi-volet-corps .defile, .pi-volet-corps table.t { background: none; border-radius: 0; }
+.pi-volet-corps table.t th, .pi-volet-corps table.t td { padding: 8px 10px 8px 0; }
+.pi-volet-corps table.t td.n { font-weight: 400; }
+.pi-volet-corps .puces { padding-left: 18px; }
+.pi-page .eq-tete { margin: 4px 0 0; }
+.pi-page .eq-tete .es-etat { margin: 4px 0 0; font-size: 15px; }
+.pi-page .eq-pastilles { display: block; margin: 2px 0 0; color: var(--gris); font-size: 13px; }
+.pi-page .eq-pastilles:empty { display: none; }
+.pi-page .eq-tete .avatar { font-weight: 400; }
+.pi-page .eq-chiffres { display: block; margin: 0; }
+.pi-page .eq-chiffres > div { display: block; background: none; box-shadow: none; padding: 0; border-radius: 0; }
+.pi-page .eq-chiffres .es-hero { margin-top: 20px; }
+.pi-page .eq-chiffres b.es-chiffre { font-size: clamp(44px, 13vw, 60px); line-height: 1.05; }
+.es-carte.eq-graphe { padding-bottom: 12px; margin-bottom: 0; }
+.es-carte.eq-graphe h2 { margin-bottom: 12px; }
+.pi-page .eq-fil { background: none; border-radius: 0; overflow: visible; }
+.pi-page .eq-fil .eq-jour { background: none; padding: 12px 0 2px; font-size: 13px; font-weight: 400; color: var(--gris); }
+.pi-page .eq-fil .eq-jour + li:not(.eq-jour) { border-top: 0; }
+.pi-page .eq-fil button { padding: 10px 0; }
+.pi-page .eq-fil button:not([disabled]):hover { background: none; }
+.pi-page .eq-fil b { font-size: 17px; font-weight: 400; }
+.eq-suite { border-top: 1px solid var(--trait); }
+.pi-page .aide.pi-pied-aide { margin-top: 14px; }
+.pi-page .eq-chiffres .es-ligne span { font-size: inherit; color: inherit; }
+.pi-page .eq-chiffres .es-ligne .pi-val { font-weight: 700; }
+.pi-page .eq-chiffres .es-ligne .pi-txt small { font-size: 15px; color: var(--gris); }
+.es-ligne .pi-val.pi-gris { font-weight: 400; }
+/* L'interrupteur d'accès : foncé quand l'accès est ouvert. Le vert reste réservé à « ça revient ». */
+.pi-acces .inter input:checked + span { background: var(--encre); }
+.pi-acces .inter span::after { background: var(--carte); }
+.pi-reglage { flex-wrap: wrap; }
+.pi-reglage .pi-txt { flex: 1 1 100%; }
+.pi-reglage select { flex: 1 1 100%; max-width: 280px; }
+/* --- Feuilles « Plus », « Réglages » et les feuilles de ces pages (classe pi-f) --- */
+.feuille > .pi-f h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.feuille > .pi-f h2 { margin: 16px 0 4px; font-size: 15px; font-weight: 400; color: var(--gris); }
+.feuille > .pi-f > .sous { font-size: 17px; }
+.feuille > .pi-f .aide { margin: 0 0 4px; }
+.feuille > .pi-f .btn:not(.plein) { border-width: 1px; }
+.feuille > .pi-f .champ { font-weight: 400; color: var(--gris); }
+.feuille > .pi-f .champ input, .feuille > .pi-f .champ select, .feuille > .pi-f .champ textarea { border: 1px solid var(--trait-fort); font-weight: 400; color: var(--encre); }
+.feuille > .pi-f .champ textarea { border-radius: 10px; padding: 10px 12px; font: inherit; background: var(--carte); }
+.pi-f .themes { display: block; margin: 4px 0 0; }
+.pi-f .themes label { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 0; background: none; border-radius: 0; font-size: 17px; font-weight: 400; }
+.pi-f .themes label + label { border-top: 1px solid var(--trait); }
+.pi-f .themes label:hover { box-shadow: none; }
+.pi-f .themes label:has(input:checked) { box-shadow: none; font-weight: 700; }
+.pi-f .themes label:has(input:focus-visible) { outline: 3px solid var(--marque); outline-offset: 2px; }
+.pi-f .themes label::after { content: ""; flex: none; margin-left: auto; width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--trait-fort); }
+.pi-f .themes label:has(input:checked)::after { background: var(--sur-marque); box-shadow: inset 0 0 0 6px var(--marque); }
+.pi-f .themes .apercu { flex: none; width: 44px; height: 30px; border-radius: 8px; padding: 5px; gap: 3px; box-shadow: inset 0 0 0 1px var(--trait-fort); }
+.pi-f .themes .apercu i { border-radius: 4px; }
+.pi-f-lignes { border-top: 1px solid var(--trait); }
+.pi-f .valider { margin-top: 14px; }
+.pi-f .eq-qr { background: none; padding: 0; }
+.pi-f .eq-qr p b { font-weight: 400; }
+.pi-f .pas-accueil b, .connexion .pas-accueil b { font-weight: 400; }
+.pi-f .resa-ligne { background: none; border-radius: 0; padding: 8px 0; border-top: 1px solid var(--trait); }
+.pi-f .resa-lignes { gap: 0; }
+.pi-f .resa-ligne b { font-weight: 400; }
+.pi-f .resa-ligne input { font-weight: 700; border-width: 1px; }
+button.plus-moi > .chev { flex: none; display: flex; color: var(--gris); }
+button.plus-moi > .chev svg { width: 18px; height: 18px; }
+.plus-moi .plus-fiche { text-decoration: none; color: var(--gris); }
+.plus-moi .avatar { font-weight: 400; }
+.plus-grille .pastille { width: 56px; height: 56px; border-radius: 50%; background: var(--fond); }
+.plus-grille button, .plus-grille button:hover { background: none; box-shadow: none; }
+.plus-grille button[aria-current="page"] { box-shadow: none; }
+.plus-grille button[aria-current="page"] .pastille { box-shadow: inset 0 0 0 2px var(--marque); }
+@media (hover: hover) { .plus-grille button:hover .pastille { box-shadow: inset 0 0 0 2px var(--trait-fort); } }
+.pi-plus .valider.trois { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--trait); }
+
+/* --- Connexion, écran verrouillé, invitation : le cadre devient une carte blanche, sans ombre --- */
+.connexion .c-form { border: 0; border-radius: var(--r-grand); box-shadow: none; background: var(--carte); -webkit-backdrop-filter: none; backdrop-filter: none; padding: 6px 16px 16px; }
+.connexion .champ { font-weight: 400; color: var(--gris); }
+.connexion .champ input, .connexion .champ select { border-width: 1px; font-weight: 400; color: var(--encre); }
+.connexion .champ input:focus { border-color: var(--marque); box-shadow: 0 0 0 1px var(--marque); }
+.connexion .c-form .message { font-weight: 400; }
+.connexion .c-tete .es-etat { margin: 6px 0 0; }
+.connexion .c-tete .avatar { font-weight: 400; }
+.connexion .c-liens { margin-top: 12px; }
+.c-liens li:empty { display: none; }
+.c-liens li:empty + li { border-top: 0; }
+.connexion .c-demo { margin-top: 12px; }
+.connexion .c-demo summary b { font-weight: 400; }
+.connexion .c-comptes { gap: 0; padding-bottom: 6px; }
+.connexion .c-comptes button { background: none; border-radius: 0; padding: 8px 0; min-height: 52px; border-top: 1px solid var(--trait); }
+.connexion .c-comptes button:hover { box-shadow: none; }
+.connexion .c-comptes button b, .connexion .c-comptes .avatar { font-weight: 400; }
+.connexion .c-pied .lien { color: var(--gris); font-size: 15px; }
+.connexion .eq-etape { font-size: 15px; font-weight: 400; }
+.connexion .eq-ident { background: none; border-radius: 0; margin: 4px 0 0; padding: 12px 0; border-bottom: 1px solid var(--trait); font-weight: 400; color: var(--gris); }
+.connexion .eq-ident .code { color: var(--encre); font-weight: 700; }
+.connexion .eq-installer h2 { margin: 14px 0 0; font-size: 15px; font-weight: 400; color: var(--gris); }
+.connexion .pi-note { text-align: center; }
+.connexion .etab-connexion { border-radius: var(--r-grand); margin-top: 12px; }
+/* --- Groupe : un chiffre en grand, trois lignes ; dans chaque carte d'établissement, des lignes à filets --- */
+.pi-groupe > .aide, .pi-groupe h2 + .aide { margin: 0; font-size: 17px; color: var(--gris); }
+.pi-groupe h2 { margin: 28px 0 8px; }
+.pi-groupe h2 + .aide { margin: -6px 0 6px; }
+.g-tete { max-width: 720px; }
+.g-tete .es-hero { margin-top: 16px; }
+.g-tete .segments { margin: 16px 0 0; }
+.g-tete .es-carte { margin-top: 12px; }
+.pi-groupe .etab-carte { border-radius: var(--r-grand); gap: 10px; }
+.pi-groupe .etab-carte h3 { font-size: 17px; }
+.pi-groupe .etab-carte .statut { background: none; padding: 0; font-weight: 400; color: var(--gris); }
+.pi-groupe .etab-voyants { display: block; }
+.pi-groupe .etab-voyants div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; background: none; border-radius: 0; padding: 9px 0; border-top: 1px solid var(--trait); }
+.pi-groupe .etab-voyants dt { font-size: 15px; }
+.pi-groupe .etab-voyants dd { margin: 0; font-size: 17px; text-align: right; }
+.pi-groupe .etab-voyants .large dd { font-size: 20px; }
+.pi-groupe .etab-voyants .alerte dd { color: inherit; }
+.pi-groupe .etab-voyants .alerte dd::before, .pi-groupe .etab-voyants .attention dd::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--alerte); margin-right: 7px; vertical-align: 2px; }
+.pi-groupe .etab-voyants .attention dd::before { background: var(--attention); }
+.pi-groupe .etab-remarques i { width: 8px; height: 8px; }
+.pi-groupe .etab-carte .btn { border-width: 1px; }
+.pi-groupe .graphe { border-radius: var(--r-grand); }
+.pi-groupe .graphe h3 { font-weight: 400; }
+.pi-groupe .g-transferts b { font-weight: 400; }
+.pi-groupe table.t.comparer td.pire { color: inherit; }
+.es-ligne.pi-reglage > .pi-txt { flex: 1 1 100%; }
+.es-ligne.pi-reglage > select { margin-bottom: 4px; }
+/* ===== Fin : pilotage ===== */
+
+/* ===== Refonte : depot ===== */
+/* Les écrans du magasinier et du chauffeur dans le langage de l'accueil essentiel : fond uni, une carte de lignes à filets,
+   le gras réservé au chiffre et aux boutons, un seul aplat ambre par écran.
+   Ce qui reste du terrain : cibles de 52 px au moins, boutons de geste en couleur pleine, chiffre du stock très grand, contours visibles. */
+
+/* --- Accueil du magasinier et « Au dépôt » : le Scanner, le code, puis des raccourcis ronds --- */
+.t-scan span { font-weight: 400; opacity: .85; }
+.t-ou[data-form="code"] { margin: 10px 0 18px; }
+.t-ou[data-form="code"] .btn.plein { background: var(--carte); border-color: var(--trait-fort); color: var(--encre); min-height: 54px; min-width: 64px; }
+.t-tuiles.dp-gestes { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 4px; margin: 4px 0 0; }
+.dp-gestes .t-tuile { display: grid; grid-template-columns: none; justify-items: center; align-content: start; gap: 8px; background: none; border-radius: var(--r); padding: 4px 0; min-height: 100px; text-align: center; }
+.dp-gestes .t-tuile .pastille { width: 60px; height: 60px; background: var(--carte); box-shadow: inset 0 0 0 1.5px var(--trait-fort); }
+.dp-gestes .t-tuile svg { width: 28px; height: 28px; }
+.dp-gestes .t-tuile b { font-size: 14px; font-weight: 400; line-height: 1.2; overflow-wrap: normal; }
+.dp-gestes .t-tuile small { display: none; }
+.t-tuiles.dp-gestes > .t-tuile:last-child:nth-child(odd) { grid-column: auto; }
+@media (hover: hover) { .dp-gestes .t-tuile:hover .pastille { box-shadow: inset 0 0 0 2px var(--encre); } }
+h1 + .t-scan { margin-top: 4px; }
+
+/* « À faire » du magasinier et « Ma tournée » du chauffeur : le titre en gris, des lignes à filets (composants de l'accueil essentiel) */
+.w-titre.dp-titre { display: block; margin: 0; font-size: 15px; font-weight: 400; color: var(--gris); }
+.w:has(> .dp-titre) { border-radius: var(--r-grand); padding: 14px 16px 4px; }
+.dp-taches .es-ligne { min-height: 64px; }
+.dp-taches .es-ligne > i { width: 12px; height: 12px; }
+.dp-taches .es-ligne small { display: block; margin-top: 2px; color: var(--gris); font-size: 15px; line-height: 1.3; }
+.dp-taches .es-ligne.es-suite { min-height: 52px; }
+
+/* --- Listes du dépôt : une seule carte, des lignes séparées par un filet --- */
+.t-liste.dp { gap: 0; background: var(--carte); border-radius: var(--r-grand); padding: 0 16px; }
+.t-liste.dp > li:not([hidden]) ~ li:not([hidden]) { border-top: 1px solid var(--trait); }
+.t-liste.dp > li > button { grid-template-columns: 48px minmax(0, 1fr) auto; background: none; border-radius: 0; padding: 10px 0; min-height: 68px; }
+.t-liste.dp .vignette { width: 48px; border-radius: var(--r); }
+.t-liste.dp .vignette.pic { background: none; padding: 9px; }
+.t-liste.dp b { font-size: 17px; font-weight: 400; line-height: 1.25; overflow-wrap: anywhere; }
+.t-liste.dp small { display: block; font-size: 15px; line-height: 1.3; margin-top: 1px; }
+.t-liste.dp .n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.t-liste.dp .chev { display: flex; color: var(--gris); }
+.t-liste.dp .chev svg { width: 18px; height: 18px; }
+.t-liste.dp > li.vide { padding: 16px 0; }
+@media (hover: hover) { .t-liste.dp button:hover { box-shadow: none; } .t-liste.dp button:hover b { text-decoration: underline; text-underline-offset: 3px; } .dp-gestes .t-tuile:hover { box-shadow: none; } }
+.t-liste.dp .zone-tour { color: var(--encre) !important; font-weight: 400; }
+.t-liste.dp .zone-tour::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--compter); margin-right: 8px; }
+/* Lignes à saisir (retour d'un événement, comptage d'une zone, réception) : le champ garde son contour épais */
+.t-liste.dp .t-retour { background: none; border-radius: 0; padding: 10px 0; min-height: 68px; grid-template-columns: 48px minmax(0, 1fr) 92px; }
+.t-liste.dp .t-retour input[type=number] { background: var(--carte); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.t-liste.dp .t-retour .dlc { font-weight: 400; }
+/* « Valider » reste à portée pendant que la liste défile, au-dessus de la barre du bas */
+.valider.dp-colle { position: sticky; bottom: calc(100px + env(safe-area-inset-bottom)); z-index: 5; margin-top: 8px; padding: 8px 0; background: var(--fond); }
+.valider.dp-colle .btn { min-height: 56px; }
+@media (min-width: 960px) { .valider.dp-colle { bottom: 0; } }
+
+/* --- Objet scanné : le chiffre et les deux gestes portent l'écran, le reste s'efface --- */
+.t-objet h1 { font-weight: 700; }
+.t-objet .code { font-weight: 400; color: var(--gris); }
+.t-objet .etat { font-weight: 400; }
+.t-objet .etat.bas, .t-objet .etat.zero, .t-objet .etat.sorti { font-weight: 700; }
+.to-jauge .t-stock { font-weight: 700; }
+.to-jauge span { font-weight: 400; }
+.to-barre { height: 6px; border-radius: 3px; }
+.t-objet .lot-premier { font-weight: 400; }
+.t-action small { font-weight: 400; }
+.t-action.leger small { font-weight: 400; }
+
+/* --- Feuilles de geste : une question, la quantité, des choix en lignes, « Valider » --- */
+.feuille > .f-geste h1 { font-weight: 700; }
+.f-geste .tete { grid-template-columns: 56px minmax(0, 1fr); margin-bottom: 4px; }
+.f-geste .tete b { font-weight: 400; }
+.f-geste .tete .code { font-weight: 400; font-size: 15px; color: var(--gris); }
+.f-geste .compteur input { font-weight: 700; background: var(--carte); }
+.f-geste .sous { margin-bottom: 8px; }
+.f-geste .choix-titre { font-size: 15px; font-weight: 400; }
+.f-geste .choix input[type=radio] { width: 24px; height: 24px; flex: none; }
+.f-geste .choix:not(.deux) { gap: 0; border-top: 1px solid var(--trait); border-bottom: 1px solid var(--trait); }
+.f-geste .choix:not(.deux) label { background: none; border-radius: 0; box-shadow: none; padding: 8px 4px; font-weight: 400; gap: 12px; }
+.f-geste .choix:not(.deux) label + label { border-top: 1px solid var(--trait); }
+.f-geste .choix:not(.deux) label:has(input:checked) { box-shadow: none; font-weight: 700; }
+.f-geste .choix.deux label { background: none; box-shadow: inset 0 0 0 2px var(--trait-fort); font-weight: 400; }
+.f-geste .choix.deux label:has(input:checked) { box-shadow: inset 0 0 0 2px var(--marque); font-weight: 700; }
+.f-geste .choix label.autre { padding: 4px 0 4px 4px; }
+.f-geste .choix label.autre input[type=text] { height: 48px; font-weight: 400; border-color: var(--trait-fort); }
+.f-geste .rapides button[data-fixe] { font-weight: 400; }
+.f-geste .rapides button[data-fixe][aria-pressed="true"] { font-weight: 700; background: none; }
+.f-geste .choix-seul { font-weight: 400; }
+.f-geste .manque-choix .btn small { font-weight: 400; }
+.f-geste .ecarts span { font-weight: 400; }
+.f-geste .champ { font-weight: 400; color: var(--gris); }
+.f-geste .champ input { font-weight: 400; color: var(--encre); border-color: var(--trait-fort); }
+.dp-effacer { display: flex; justify-content: flex-end; margin: 8px 0 0; }
+.dp-effacer .btn { min-height: 52px; min-width: 110px; }
+.dp-contenu { margin: 0 0 6px; color: var(--gris); }
+.dp-contenu summary { display: flex; align-items: center; min-height: 52px; cursor: pointer; list-style: none; text-decoration: underline; text-underline-offset: 3px; }
+.dp-contenu summary::-webkit-details-marker { display: none; }
+.dp-contenu p { margin: 0 0 10px; font-size: 15px; line-height: 1.45; }
+
+/* --- Préparation d'un départ : le compte posé sur le fond, une carte de lignes, des « + » à contour --- */
+.prep-bilan.dp, .prep-bilan.dp.encours, .prep-bilan.dp.complet { background: none; box-shadow: none; border-radius: 0; padding: 0; margin: 0 0 14px; }
+.prep-bilan.dp.encours { font-size: 17px; font-weight: 400; gap: 4px 8px; }
+.prep-bilan.dp.encours b { font-size: clamp(34px, 10.5vw, 44px); font-weight: 700; letter-spacing: -.02em; line-height: 1.05; }
+.prep-bilan.dp.encours .barre { height: 6px; border-radius: 3px; margin-top: 4px; }
+.prep-bilan.dp.encours small { font-weight: 400; color: var(--gris); }
+.prep-bilan.dp.complet { font-size: 28px; font-weight: 700; line-height: 1.2; }
+.prep-bilan.dp.complet::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--retour); margin-right: 10px; vertical-align: 3px; }
+.prep-bilan.dp + .t-scan { margin-bottom: 14px; }
+.t-liste.dp .prep-ligne, .t-liste.dp .prep-ligne.ok { background: none; border-radius: 0; box-shadow: none; padding: 10px 0; min-height: 68px; grid-template-columns: 48px minmax(0, 1fr) auto; }
+.t-liste.dp .prep-ligne .barre { height: 4px; border-radius: 2px; }
+.t-liste.dp .prep-boutons .btn.plein { background: var(--carte); border: 2px solid var(--trait-fort); color: var(--encre); min-width: 68px; font-size: 18px; }
+.prep-faites.dp summary { background: none; box-shadow: none; border-radius: 0; padding: 0 4px; font-weight: 400; }
+.prep-faites.dp summary::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--retour); flex: none; }
+.prep-faites.dp summary::after { font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
+
+/* --- Tournée du chauffeur : les arrêts en lignes dans une carte, un seul bouton plein (le prochain arrêt) --- */
+.arrets { gap: 0; background: var(--carte); border-radius: var(--r-grand); padding: 0 16px; }
+.w .arrets { background: none; border-radius: 0; padding: 0; }
+.arret, .w .arret { background: none; border-radius: 0; box-shadow: none; padding: 14px 0; margin-top: 0; }
+.arret + .arret { border-top: 1px solid var(--trait); }
+.arret .pastille { width: 44px; height: 44px; border-radius: 50%; }
+.arret-tete { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.arret b { font-size: 17px; font-weight: 400; overflow-wrap: anywhere; }
+.arret small { display: block; font-size: 15px; line-height: 1.3; margin-top: 1px; }
+.arret .statut { font-weight: 400; }
+.arret-actions .btn { min-height: 52px; font-size: 16px; flex: 1 1 40%; }
+.arret-actions > :last-child { flex-basis: 100%; }
+.tournee-ligne { font-weight: 400; font-size: 15px; margin: 4px 0 0; }
+.tournee-ligne b { font-size: 17px; }
+h2:has(+ .arrets) { font-size: 15px; font-weight: 400; color: var(--gris); margin: 20px 0 8px; }
+.es-ligne.dp-tout { border-top: 1px solid var(--trait); min-height: 52px; }
+
+/* --- Le bon affiché après un geste : un bouton plein, les autres à contour sur deux colonnes --- */
+.t-actions.bon-gestes { display: flex; flex-wrap: wrap; gap: 10px; }
+.bon-gestes > .btn { flex: 1 1 calc(50% - 5px); width: auto; min-width: 0; min-height: 52px; padding: 0 10px; font-size: 16px; line-height: 1.2; text-align: center; }
+.bon-gestes > .btn.plein, .bon-gestes > .btn:last-child { flex-basis: 100%; }
+.bon-gestes > .btn.plein { min-height: 60px; font-size: 18px; }
+
+/* --- Sur ordinateur, le contenu ne s'étire pas --- */
+@media (min-width: 960px) {
+  .t-liste.dp, form:has(> .t-liste.dp), .prep-bilan.dp, .prep-faites.dp, .prep-depart, .arrets, .t-tuiles.dp-gestes, .t-actions.bon-gestes { max-width: 720px; }
+  .t-tuiles.dp-gestes { grid-template-columns: repeat(auto-fill, 96px); gap: 14px 12px; }
+  /* L'accueil du magasinier et du chauffeur : une colonne, comme l'accueil essentiel */
+  .bento:has(> .w > .t-scan):has(.dp-titre) { grid-template-columns: minmax(0, 1fr); max-width: 720px; }
+  .bento:has(> .w > .t-scan):has(.dp-titre) > .w { grid-column: 1 / -1; }
+}
+/* ===== Fin : depot ===== */
+
+/* ===== Refonte : stock ===== */
+/* Stock, fiche d'un objet, article, journal, commandes, lieux et contrôles, dans le dessin de l'accueil essentiel :
+   une phrase d'état, un seul élément fort, des listes en lignes dans une carte, des raccourcis ronds, la suite derrière un toucher.
+   Les pièces communes (.es-etat, .es-hero, .es-chiffre, .es-raccourcis, .es-rond, .es-lien, .es-rien) viennent de la section « Accueil essentiel ». */
+
+/* --- La page : une colonne, des intertitres discrets --- */
+@media (min-width: 960px) { main.b-main:has(> .st-col) { max-width: 880px; } }
+main:has(> .st-col) > h2 { margin: 26px 0 8px 16px; font-size: 15px; font-weight: 400; color: var(--gris); }
+.st-etat { margin: 0 0 14px; }
+main:has(> .st-col) > .aide { margin-bottom: 10px; }
+main:has(> .st-col) > .aide summary { font-size: 17px; }
+main:has(> .st-col) > .aide .code { font-weight: 400; }
+.st-suite { margin: 4px 0 0; text-align: center; }
+
+/* --- Listes : une carte, des lignes, le nom en graisse normale, la seconde ligne grise, la valeur à droite --- */
+.st-liste .l b { font-size: 17px; font-weight: 400; }
+.st-liste .l small { font-size: 14px; }
+.st-liste .l small .etat, .st-liste .l small .etat.bas, .st-liste .l small .etat.zero, .st-liste .l small .etat.sorti { font-size: inherit; font-weight: 400; }
+.st-liste .l small .etat:not(.bas):not(.zero):not(.sorti) { color: inherit; }
+.st-liste .l small .etat:not(.bas):not(.zero):not(.sorti) i { display: none; }
+.st-liste .etat i { width: 8px; height: 8px; }
+.st-liste .code { font-weight: 400; }
+.st-liste .lot-lieu.bientot, .st-liste .lot-lieu.perime { font-weight: 400; }
+@media (max-width: 899px) { .st-code { display: none; } }
+.st-liste .chev { display: flex; color: var(--gris); }
+.st-liste .chev svg { width: 18px; height: 18px; }
+.st-liste div.l { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 16px 10px 12px; min-height: 64px; }
+.st-liste div.l .vignette { width: 44px; }
+.st-liste .l .vignette.pic { padding: 10px; border-radius: 50%; }
+.st-puce { justify-self: center; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--neutre)); }
+.st-liste.st-cmdes div.l { grid-template-columns: 12px minmax(0, 1fr) auto; padding-left: 16px; }
+.st-cmdes .btn.petit { border-radius: 999px; padding: 0 14px; }
+.st-cmdes .l .n { font-size: 17px; }
+/* La suite attend un toucher : huit lignes d'une liste, cinq d'un historique */
+.st-replie .b-liste > li:nth-child(n+9), .st-replie table.t tbody tr:nth-child(n+6) { display: none; }
+.st-replie table.t tbody tr:nth-child(5) td { border-bottom: 0; }
+
+/* --- Raccourcis ronds : autant de colonnes que de gestes (cinq au plus par rangée) --- */
+.st-ronds { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); margin: 18px 0 14px; }
+.st-ronds button { overflow-wrap: anywhere; }
+[data-st-replie] + .aide { margin-top: 12px; }
+@media (min-width: 720px) { .st-ronds { grid-template-columns: repeat(var(--n, 4), 96px); } }
+@media (min-width: 960px) { .st-ronds { margin-top: 22px; } }
+
+/* --- Fiche d'un objet --- */
+.fiche.st-fiche { display: block; }
+.st-tete { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; align-items: center; }
+.st-tete .vignette { width: 72px; border-radius: 16px; }
+.st-tete h1 { font-size: 24px; line-height: 1.15; margin: 0 0 4px; overflow-wrap: anywhere; }
+.st-sousnom { margin: 0; color: var(--gris); font-size: 15px; }
+.st-sousnom .etat, .st-sousnom .etat.bas, .st-sousnom .etat.zero, .st-sousnom .etat.sorti { font-size: 15px; font-weight: 400; color: inherit; }
+.st-sousnom .etat i { width: 10px; height: 10px; }
+.st-sousnom .code { font-weight: 400; }
+.st-fiche .es-hero { margin-top: 20px; }
+.st-barre { display: block; max-width: 360px; height: 6px; border-radius: 3px; background: var(--trait); margin-top: 10px; overflow: hidden; }
+.st-barre i { display: block; height: 100%; border-radius: 3px; }
+.st-fiche .ctrl-etat, .st-fiche .ctrl-etat.bientot, .st-fiche .ctrl-etat.retard { background: none; padding: 0; margin: 14px 0 0; border-radius: 0; color: var(--gris); }
+.st-fiche .ctrl-etat i { width: 10px; height: 10px; }
+.st-atelier { margin: 14px 0 0; font-size: 15px; }
+.st-fiche dl { display: block; margin: 18px 0 0; padding: 2px 16px; }
+.st-fiche dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 13px 0; }
+.st-fiche dl > div + div { border-top: 1px solid var(--trait); }
+.st-fiche dt { font-size: 17px; font-weight: 400; color: var(--encre); }
+.st-fiche dd { text-align: right; font-size: 17px; font-weight: 700; }
+.st-fiche .art-note { background: none; border-radius: 0; padding: 0; margin: 16px 0; color: var(--gris); box-shadow: none; }
+.st-plus { margin: 12px 0 0; padding: 0 16px; background: var(--carte); border-radius: var(--r-grand); }
+.st-plus summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; font-size: 17px; list-style: none; cursor: pointer; }
+.st-plus summary::-webkit-details-marker { display: none; }
+.st-plus summary::after { content: ""; flex: none; width: 8px; height: 8px; margin: 0 6px 4px 0; border-right: 2px solid var(--gris); border-bottom: 2px solid var(--gris); transform: rotate(45deg); }
+.st-plus[open] summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+.st-plus[open] { padding-bottom: 16px; }
+.st-plus .btn.petit { border-radius: 999px; }
+/* Tableaux à deux colonnes de la fiche (où il se trouve, ce qu'il rapporte, lots, chez qui) : des lignes, la valeur à droite */
+table.t.st-lignes td { padding: 13px 16px; font-size: 17px; }
+table.t.st-lignes td small { font-size: 14px; }
+/* Historique et journal sur téléphone : le geste ou l'objet en graisse normale, le reste en gris, la quantité à droite */
+@media (max-width: 640px) {
+  main:has(> .st-col) table.t.mvts .m-objet { font-size: 17px; font-weight: 400; }
+  main:has(> .st-col) table.t.mvts:not(.avec-objet) .m-quoi { color: var(--encre); font-size: 17px; }
+  main:has(> .st-col) table.t.mvts:not(.avec-objet) .m-quoi small { font-size: 14px; }
+  main:has(> .st-col) table.t.mvts .m-qte { font-size: 17px; }
+  main:has(> .st-col) table.t.mvts .m-quand, main:has(> .st-col) table.t.mvts .m-qui { margin-top: 2px; }
+  .st-replie table.t.mvts tbody tr:nth-child(5) { border-bottom: 0; }
+}
+
+/* --- Commandes : un brouillon par carte, ses lignes séparées par un filet, le total, puis un bouton --- */
+.st-bon header { align-items: baseline; margin-bottom: 2px; }
+.st-bon header b { font-size: 17px; font-weight: 400; }
+.st-bon header span { color: var(--gris); font-size: 14px; }
+.bon.st-bon table.t { background: none; border-radius: 0; }
+.st-bon table.t td { padding: 11px 0; font-size: 17px; }
+.st-bon table.t td.n { font-weight: 400; padding-left: 12px; }
+.st-bon table.t small { font-size: 14px; }
+.st-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-top: 12px; border-top: 1px solid var(--trait); color: var(--gris); font-size: 15px; }
+.st-total b { color: var(--encre); font-size: 20px; font-variant-numeric: tabular-nums; }
+.st-bon .es-etat { margin: 0; font-size: 15px; }
+
+/* --- Article : des libellés en gris, la saisie en graisse normale --- */
+.art-form .champ, .art-form .choix-titre { font-weight: 400; color: var(--gris); }
+.art-form .champ input, .art-form .champ select { font-weight: 400; color: var(--encre); border-width: 1px; border-color: var(--trait-fort); }
+.art-form .champ input:focus, .art-form .champ select:focus { border-color: var(--marque); box-shadow: 0 0 0 1px var(--marque); }
+.art-form .choix label { font-weight: 400; }
+.art-form .art-details summary { font-weight: 400; }
+.art-form .es-lien svg { width: 20px; height: 20px; }
+
+/* --- Contrôles : à l'écran, une liste ; le registre n'apparaît qu'à l'impression --- */
+@media screen { .st-papier { display: none; } }
+/* ===== Fin : stock ===== */

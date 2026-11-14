@@ -65,15 +65,14 @@ function miniBarres(cases) {
 }
 function carteEquipe(u) {
   const sept = gestesDe(u, 7), d = dernierGeste(u), e = etatAcces(u), moiMeme = u.id === session.uid;
-  return `<button class="eq-carte ${u.actif ? "" : "inactif"}" data-personne="${u.id}">${avatar(u, true)}
-    <span class="eq-nom"><b>${esc(u.nom)}${moiMeme ? ` <span class="statut">vous</span>` : ""}</b><small>${esc(u.poste || PROFILS[u.role].nom)}</small>${e ? `<small><span class="statut">${e}</span></small>` : ""}</span>
-    <span class="eq-bas"><span><b>${sept.length}</b> geste${sept.length > 1 ? "s" : ""} en 7 jours<small>${d ? "Dernier geste " + ilYA(d.date) : "Aucun geste enregistré"}</small></span>${miniBarres(parJour(sept, 7))}</span>
-  </button>`;
+  return `<li><button class="es-ligne eq-carte ${u.actif ? "" : "inactif"}" data-personne="${u.id}">${avatar(u)}
+    <span class="pi-txt eq-nom"><b>${esc(u.nom)}${moiMeme ? ` <span class="pi-gris">(vous)</span>` : ""}</b><small>${[esc(u.poste || PROFILS[u.role].nom), e, d ? "dernier geste " + ilYA(d.date) : ""].filter(Boolean).join(" · ")}</small></span>
+    <span class="pi-val${sept.length ? "" : " pi-gris"}">${sept.length}<small>${sept.length > 1 ? "gestes" : "geste"}</small></span><span class="chev">${I.chevron}</span></button></li>`;
 }
-// Les fiches que la personne connectée a le droit d'ouvrir, la sienne d'abord.
+// Les fiches que la personne connectée a le droit d'ouvrir, la sienne d'abord : une ligne par personne, dans une seule carte.
 function cartesEquipe() {
   const l = [moi()].filter(u => u.id).concat(fichesVisibles());
-  return `<div class="eq-grille">${l.map(carteEquipe).join("")}</div>`;
+  return `<section class="es-carte pi-carte"><h2>Gestes enregistrés en 7 jours</h2><ul class="es-lignes eq-grille">${l.map(carteEquipe).join("")}</ul></section>`;
 }
 // Les derniers gestes de l'équipe, toutes personnes visibles confondues.
 function fluxEquipe(n) {
@@ -102,13 +101,14 @@ let ongletEq = "fiches";
 function vEquipe() {
   const admin = session.admin && droit("equipe");
   if (!admin) ongletEq = "fiches";
-  const attente = S.equipe.filter(u => u.actif && !u.empreinte).length;
-  return `<h1>Équipe</h1>
-  <p class="sous">${session.profil === "direction" ? "La fiche de chacun : qui a fait quoi, et quand." : fichesVisibles().length ? "Les fiches des personnes que vous encadrez." : "Votre fiche, avec vos gestes de stock."}</p>
-  ${admin ? `<div class="segments" role="group" aria-label="Partie de l'écran"><button data-onglet-eq="fiches" aria-pressed="${ongletEq === "fiches"}">Les fiches</button><button data-onglet-eq="acces" aria-pressed="${ongletEq === "acces"}">Accès et sécurité${attente ? ` <span class="nb-attente">${attente}</span>` : ""}</button></div>` : ""}
-  ${ongletEq === "acces" && admin ? dAcces() : `${cartesEquipe()}
-    ${admin ? `<p style="margin-top:14px"><button class="btn plein" data-act="ajouterPersonne">${I.equipe}Ajouter une personne</button></p>` : ""}
-    <div class="eq-note"><b>Ce que montrent ces fiches</b><p>Les gestes enregistrés dans l'appli : une sortie, un retour, un comptage, une perte signalée. L'appli ne relève ni la position des personnes, ni leur temps de travail. Chacun voit sa propre fiche, à tout moment.</p></div>`}`;
+  const attente = S.equipe.filter(u => u.actif && !u.empreinte).length, acces = ongletEq === "acces" && admin;
+  const fiches = "Ces fiches montrent les gestes enregistrés dans l'appli : une sortie, un retour, un comptage, une perte signalée. L'appli ne relève ni la position des personnes, ni leur temps de travail. Chacun voit sa propre fiche, à tout moment.";
+  return `<h1>Équipe</h1><div class="pi-page">
+  ${acces ? sousAide("Chacun a son accès. Il se retire d'un geste.", "Chacun entre avec son identifiant et son mot de passe. Chaque mouvement porte son nom. Retirer un accès prend une seconde ; les mouvements de la personne restent dans le journal.")
+    : sousAide(session.profil === "direction" ? "La fiche de chacun : qui a fait quoi, et quand." : fichesVisibles().length ? "Les fiches des personnes que vous encadrez." : "Votre fiche, avec vos gestes de stock.", fiches)}
+  ${admin ? `<div class="segments pi-onglets" role="group" aria-label="Partie de l'écran"><button data-onglet-eq="fiches" aria-pressed="${ongletEq === "fiches"}">Les fiches</button><button data-onglet-eq="acces" aria-pressed="${ongletEq === "acces"}">Accès et sécurité${attente ? ` <span class="nb-attente">${attente}</span>` : ""}</button></div>` : ""}
+  ${acces ? dAcces() : `${cartesEquipe()}
+    ${admin ? `<div class="pi-boutons"><button class="btn plein" data-act="ajouterPersonne">${I.equipe}Ajouter une personne</button></div>` : ""}`}</div>`;
 }
 
 /* ---------------- Fiche d'une personne ---------------- */
@@ -121,12 +121,12 @@ function grapheGestes(l, jours, moiMeme) {
   const cols = parSem ? Array.from({ length: 13 }, (_, i) => ({ t: cases[i * 7].t, n: cases.slice(i * 7, i * 7 + 7).reduce((t, c) => t + c.n, 0) })) : cases;
   const etroit = window.innerWidth < 720, max = Math.max(1, ...cols.map(c => c.n)), W = etroit ? 340 : 640, H = etroit ? 120 : 150, pas = W / cols.length, lg = Math.min(34, pas * .62);
   const jour = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  return `<div class="graphe eq-graphe"><h3>Gestes ${parSem ? "par semaine" : "par jour"}</h3><p class="q">${moiMeme ? "Quels jours avez-vous enregistré des gestes ?" : "Quels jours y a-t-il eu des gestes ?"}</p>
+  return `<section class="es-carte pi-carte graphe eq-graphe"><h2>${moiMeme ? "Quels jours avez-vous enregistré des gestes ?" : "Quels jours y a-t-il eu des gestes ?"}</h2>
     <svg viewBox="0 0 ${W} ${H + 26}" role="img" aria-label="Gestes ${parSem ? "par semaine" : "par jour"} sur ${jours} jours">
       <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--trait-fort)" stroke-width="1"/>
       ${cols.map((c, i) => { const h = c.n ? Math.max(4, c.n / max * (H - 22)) : 0, x = i * pas + (pas - lg) / 2; return `<g data-tip="${c.n} geste${c.n > 1 ? "s" : ""} · ${parSem ? "semaine du " : ""}${jour(c.t)}"><rect x="${(i * pas).toFixed(1)}" y="0" width="${pas.toFixed(1)}" height="${H}" fill="transparent"/>${c.n ? `<rect x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${lg.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="var(--depot)"/>${etroit && cols.length > 14 ? "" : `<text class="v" x="${(x + lg / 2).toFixed(1)}" y="${(H - h - 5).toFixed(1)}" text-anchor="middle">${c.n}</text>`}` : ""}</g>`; }).join("")}
       <text x="0" y="${H + 18}">${jour(cols[0].t)}</text><text x="${W}" y="${H + 18}" text-anchor="end">${jour(cols[cols.length - 1].t)}</text>
-    </svg></div>`;
+    </svg></section>`;
 }
 function lignesGestes(l) {
   let jour = "";
@@ -152,37 +152,38 @@ function vPersonne(uid) {
   const e = etatAcces(u);
   if (entree) ficheSuite = false;
   const vus = ficheSuite ? nFiche : GESTES_VUS, reste = l.length - vus;
-  return `<div class="eq-tete">
+  const nb = n => `<span data-compte="${n}">${n}</span>`;
+  // Les actions de la fiche : des raccourcis ronds, comme sur l'accueil.
+  const actions = [moiMeme && [I.appareil, u.photo ? "Changer ma photo" : "Ajouter ma photo", "data-photo"], moiMeme && [I.cadenas, "Mot de passe", `data-nouveau-code="${u.id}"`],
+    !moiMeme && admin && u.actif && [I.partager, u.empreinte ? "Nouveau lien d'accès" : "Envoyer l'invitation", `data-inviter="${u.id}"`],
+    [I.imprimer, "Compte rendu", `data-aller="compteRendu" data-arg="${u.id}"`], [I.excel, "Excel", `data-export-fiche="${u.id}"`]];
+  return `<div class="pi-page"><div class="eq-tete">
     ${moiMeme ? `<button class="eq-photo" data-photo aria-label="Changer ma photo">${avatar(u, "tres")}<span class="eq-photo-pic">${I.appareil}</span></button>` : avatar(u, "tres")}
-    <div><h1>${esc(u.nom)}</h1><p class="sous">${esc(u.poste || PROFILS[u.role].nom)} · ${esc(ROLES[u.role].split(" : ")[0])}</p>
-      <p class="eq-pastilles">${u.admin ? `<span class="statut">administre le compte</span>` : ""}${e ? `<span class="statut">${e}</span>` : ""}${cx ? `<span class="statut">dernière connexion ${ilYA(cx.date)}</span>` : ""}</p></div>
+    <div><h1>${esc(u.nom)}</h1><p class="es-etat">${esc(u.poste || PROFILS[u.role].nom)} · ${esc(ROLES[u.role].split(" : ")[0])}</p>
+      <p class="eq-pastilles">${[u.admin ? "Administre le compte" : "", e, cx ? "dernière connexion " + ilYA(cx.date) : ""].filter(Boolean).join(" · ")}</p></div>
   </div>
-  ${moiMeme ? `<div class="eq-actions"><button class="btn petit" data-photo>${I.appareil}${u.photo ? "Changer ma photo" : "Ajouter ma photo"}</button><button class="btn petit" data-nouveau-code="${u.id}">${I.cadenas}Changer mon mot de passe</button></div>`
-    : admin && !u.empreinte && u.actif ? `<div class="eq-actions"><button class="btn petit plein" data-inviter="${u.id}">${I.partager}Envoyer l'invitation</button></div>` : ""}
-  <div class="w-entete" style="margin-top:22px"><h2 style="margin:0">Compte rendu d'activité</h2><div class="segments" role="group" aria-label="Période">${[7, 30, 90].map(j => `<button data-periode-fiche="${j}" aria-pressed="${periodeFiche === j}">${j} j</button>`).join("")}</div></div>
+  ${piRonds(actions, "eq-actions")}
+  <div class="segments pi-onglets" role="group" aria-label="Période">${[7, 30, 90].map(j => `<button data-periode-fiche="${j}" aria-pressed="${periodeFiche === j}">${j} jours</button>`).join("")}</div>
   <div class="eq-chiffres">
-    <div><b data-compte="${r.total}">${r.total}</b><span>geste${r.total > 1 ? "s" : ""} en ${periodeFiche} jours</span></div>
-    <div class="c-sortie"><b data-compte="${r.sortie}">${r.sortie}</b><span>${r.sortie > 1 ? "sorties" : "sortie"}</span></div>
-    <div class="c-retour"><b data-compte="${r.retour}">${r.retour}</b><span>${r.retour > 1 ? "retours et entrées" : "retour ou entrée"}</span></div>
-    <div class="c-compter"><b data-compte="${r.compter}">${r.compter}</b><span>${r.compter > 1 ? "comptages et autres gestes" : "comptage ou autre geste"}</span></div>
-    <div class="c-alerte"><b data-compte="${r.perte}">${r.perte}</b><span>${r.perte > 1 ? "pertes signalées" : "perte signalée"}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</span></div>
+    <div class="es-hero"><small>${r.total > 1 ? "Gestes enregistrés" : "Geste enregistré"} en ${periodeFiche} jours</small><b class="es-chiffre" data-compte="${r.total}">${r.total}</b></div>
+    ${piCarte("", [piLigne({ c: "sortie", t: r.sortie > 1 ? "Sorties" : "Sortie", v: nb(r.sortie) }), piLigne({ c: "retour", t: r.retour > 1 ? "Retours et entrées" : "Retour ou entrée", v: nb(r.retour) }),
+      piLigne({ c: "compter", t: r.compter > 1 ? "Comptages et autres gestes" : "Comptage ou autre geste", v: nb(r.compter) }),
+      piLigne({ c: "alerte", t: r.perte > 1 ? "Pertes signalées" : "Perte signalée", s: prix && r.valeurPertes ? argent(r.valeurPertes) : "", v: nb(r.perte) })])}
   </div>
-  <div class="eq-actions eq-sorties"><button class="btn petit" data-aller="compteRendu" data-arg="${u.id}">${I.imprimer}Compte rendu à imprimer</button><button class="btn petit" data-export-fiche="${u.id}">${I.excel}Exporter en Excel</button></div>
   ${grapheGestes(l, periodeFiche, moiMeme)}
-  ${top.length ? `<h2>${moiMeme ? "Ce qui passe le plus entre vos mains" : "Ce qui passe le plus entre ses mains"}</h2><ul class="b-liste">${top.map(x => `<li><button class="l" ${S.articles.includes(x.a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${x.a.id}"` : "disabled"}>${img(x.a)}<span><b>${esc(x.a.nom)}</b><small>${pl(x.n, "geste", "gestes")}</small></span><span class="n">${x.n}</span></button></li>`).join("")}</ul>` : ""}
-  <h2>Derniers gestes</h2>
-  ${l.length ? `${lignesGestes(l.slice(0, vus))}${reste > 0 ? `<p style="margin-top:12px"><button class="btn" data-plus-fiche>${ficheSuite ? `Afficher ${pl(Math.min(30, reste), "geste", "gestes")} de plus` : `Afficher la suite (${pl(reste, "geste", "gestes")})`}</button></p>` : ""}` : `<p class="vide">Aucun geste enregistré sur cette période.</p>`}
-  ${!moiMeme && admin ? `<div class="eq-actions eq-admin">${u.actif && u.empreinte ? `<button class="btn petit" data-inviter="${u.id}">${I.partager}Envoyer un nouveau lien d'accès</button>` : ""}${u.photo ? `<button class="btn petit" data-retirer-photo="${u.id}">Retirer la photo</button>` : ""}</div>` : ""}
-  ${moiMeme ? `<div class="eq-note"><b>Qui voit cette fiche</b><p>${quiVoitMaFiche()}. Elle montre vos gestes de stock : quoi, combien, quand. L'appli ne relève ni votre position, ni votre temps de travail.</p></div>` : ""}`;
+  ${top.length ? piCarte(moiMeme ? "Ce qui passe le plus entre vos mains" : "Ce qui passe le plus entre ses mains", top.map(x => piLigne({ g: img(x.a), t: esc(x.a.nom), v: `${x.n}<small>${x.n > 1 ? "gestes" : "geste"}</small>`, a: S.articles.includes(x.a) ? `data-${permis("materiel") ? "fiche" : "objet"}="${x.a.id}"` : "" }))) : ""}
+  <section class="es-carte pi-carte"><h2>Derniers gestes</h2>
+  ${l.length ? `${lignesGestes(l.slice(0, vus))}${reste > 0 ? `<button class="es-ligne es-suite eq-suite" data-plus-fiche><span>${ficheSuite ? `Afficher ${pl(Math.min(30, reste), "geste", "gestes")} de plus` : `Afficher la suite (${pl(reste, "geste", "gestes")})`}</span><span class="chev">${I.chevron}</span></button>` : ""}` : `<p class="es-rien">Aucun geste enregistré sur cette période.</p>`}</section>
+  ${!moiMeme && admin && u.photo ? `<p class="es-pied"><button class="es-lien" data-retirer-photo="${u.id}">Retirer la photo</button></p>` : ""}
+  ${moiMeme ? sousAide("Qui voit cette fiche ?", `${quiVoitMaFiche()}. Elle montre vos gestes de stock : quoi, combien, quand. L'appli ne relève ni votre position, ni votre temps de travail.`).replace('class="aide"', 'class="aide pi-pied-aide"') : ""}</div>`;
 }
-
 /* Compte rendu à imprimer : sur papier blanc, comme les autres documents. */
 function vCompteRendu(uid) {
   const u = S.equipe.find(x => x.id === uid);
   if (!u || !peutVoirFiche(u)) return `<h1>Pas d'accès</h1><p class="sous">Ce document n'est pas prévu pour votre rôle.</p>`;
   const l = gestesDe(u, periodeFiche), r = resumeGestes(l), prix = droit("prix"), fin = new Date(), debut = new Date(Date.now() - periodeFiche * 86400000);
   const jj = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  return `<div class="eq-actions pas-imprimer" style="margin-bottom:14px"><button class="btn petit" data-aller="personne" data-arg="${u.id}">${I.precedent}Fiche de ${esc(u.nom)}</button><button class="btn petit plein" data-act="imprimer">${I.imprimer}Imprimer ou enregistrer en PDF</button></div>
+  return `<p class="pas-imprimer pi-outils-doc"><button class="es-lien" data-aller="personne" data-arg="${u.id}">${I.precedent}Fiche de ${esc(u.nom)}</button><button class="btn petit plein" data-act="imprimer">${I.imprimer}Imprimer ou enregistrer en PDF</button></p>
   <div class="feuille-doc">${enTeteDoc()}<h1>Compte rendu d'activité</h1>
   <p><b>${esc(u.nom)}</b>${u.poste ? ", " + esc(u.poste) : ""}<br>Du ${jj(debut)} au ${jj(fin)} · édité par ${esc(moi().nom)}</p>
   <table><tbody><tr><td>Gestes enregistrés</td><td class="n">${r.total}</td></tr><tr><td>Sorties</td><td class="n">${r.sortie}</td></tr><tr><td>Retours et entrées</td><td class="n">${r.retour}</td></tr><tr><td>Comptages et autres gestes</td><td class="n">${r.compter}</td></tr><tr><td>Pertes signalées</td><td class="n">${r.perte}${prix && r.valeurPertes ? " · " + argent(r.valeurPertes) : ""}</td></tr></tbody></table>
@@ -216,7 +217,7 @@ function reduirePhoto(fichierImage) {
 }
 function feuillePhoto() {
   const u = moi(); if (!u.id) return;
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tph"><h1 id="tph" style="font-size:26px">Ma photo</h1>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tph" class="pi-f"><h1 id="tph">Ma photo</h1>
     <p class="sous">Elle s'affiche à côté de votre prénom, dans l'équipe et sur votre fiche. Un visage bien cadré suffit.</p>
     <div class="eq-apercu">${avatar(u, "tres")}</div>
     <label class="btn plein" style="margin-top:14px">${I.appareil}Prendre ou choisir une photo<input type="file" accept="image/*" class="cache" data-fichier></label>
@@ -234,7 +235,7 @@ function feuillePhoto() {
 // Au-dessus des cinq comptes de démonstration, pour ne jamais reprendre l'identifiant interne de l'un d'eux.
 function prochainUid() { let n = EQUIPE_DEMO.length; S.equipe.forEach(u => { const k = +String(u.id).replace(/\D/g, ""); if (k > n) n = k; }); return "U-" + String(n + 1).padStart(2, "0"); }
 function feuilleAjouter() {
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="taj"><h1 id="taj" style="font-size:26px">Ajouter une personne</h1>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="taj" class="pi-f"><h1 id="taj">Ajouter une personne</h1>
     <p class="sous">Vous ne choisissez pas son mot de passe. Vous lui envoyez un lien, elle choisit le sien.</p>
     <label class="champ">Prénom<input name="nom" autocomplete="off" maxlength="30"></label>
     <label class="champ">Identifiant<input name="ident" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="prenom ou prenom.nom"></label>
@@ -282,8 +283,8 @@ async function feuilleInviter(uid) {
   const u = S.equipe.find(x => x.id === uid); if (!u) return;
   // Renvoyer un lien à quelqu'un qui a déjà un mot de passe revient à lui en faire choisir un nouveau : l'ancien cesse de marcher.
   const lien = lienInvitation(u), texte = texteInvitation(u, lien), fin = new Date(u.invite.x).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tin"><h1 id="tin" style="font-size:26px">Inviter ${esc(u.nom)}</h1>
-    <p class="sous">${esc(u.nom)} ouvre ce lien sur son téléphone, choisit son mot de passe, puis met l'appli sur son écran d'accueil. Aucun mot de passe ne circule.</p>
+  const f = ouvrirFeuille(`<div role="dialog" aria-modal="true" aria-labelledby="tin" class="pi-f"><h1 id="tin">Inviter ${esc(u.nom)}</h1>
+    ${sousAide(`${esc(u.nom)} ouvre ce lien et choisit son mot de passe.`, "Sur son téléphone, puis l'appli se met sur son écran d'accueil. Aucun mot de passe ne circule.")}
     <div class="eq-qr grand"><div data-qr-invitation role="img" aria-label="QR code de l'invitation"></div><p><b>À côté de vous ?</b> Faites-lui viser ce QR code avec l'appareil photo de son téléphone.</p></div>
     <div class="eq-envois">
       ${navigator.share ? `<button class="btn plein" data-env="partage">${I.partager}Envoyer le lien</button>` : ""}
@@ -394,18 +395,19 @@ function vInvitation() {
   const tete = `<div class="barre"><div class="marque">${I.logo}<span>${esc(d.e || "Stockclair")}</span></div>${boutonReglages}</div>`;
   const faux = { nom: d.n, role: d.r };
   if (e === "perime" || e === "servi") return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete"><h1>${e === "servi" ? "Votre accès existe déjà" : "Ce lien ne marche plus"}</h1><p class="sous">${e === "servi" ? "Cette invitation a déjà servi. Entrez avec votre identifiant et votre mot de passe." : `Une invitation vaut ${INVITATION_JOURS} jours et ne sert qu'une fois. Demandez-en une nouvelle${d.par ? " à " + esc(d.par) : " à votre responsable"}.`}</p></div>
+    <div class="c-tete"><h1>${e === "servi" ? "Votre accès existe déjà" : "Ce lien ne marche plus"}</h1><p class="sous es-etat">${e === "servi" ? "Cette invitation a déjà servi. Entrez avec votre identifiant et votre mot de passe." : `Une invitation vaut ${INVITATION_JOURS} jours et ne sert qu'une fois. Demandez-en une nouvelle${d.par ? " à " + esc(d.par) : " à votre responsable"}.`}</p></div>
     <button class="btn plein" data-invitation="connexion">Aller à l'écran de connexion</button></div>`;
   if (e === "installer") return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete"><p class="eq-etape">Étape 2 sur 2</p><h1>${/Android|iPhone|iPad|iPod/.test(navigator.userAgent) ? "Mettez l'appli sur votre téléphone" : "Installez l'appli sur cet appareil"}</h1><p class="sous">Une icône sur l'écran d'accueil, comme vos autres applis. Elle s'ouvre en plein écran et continue sans réseau. Rien à chercher dans un magasin d'applications.</p></div>
+    <div class="c-tete"><p class="eq-etape">Étape 2 sur 2</p><h1>${/Android|iPhone|iPad|iPod/.test(navigator.userAgent) ? "Mettez l'appli sur votre téléphone" : "Installez l'appli sur cet appareil"}</h1><p class="sous es-etat">Une icône sur l'écran d'accueil, comme vos autres applis.</p></div>
     <div class="c-form verre eq-installer">
       ${inviteInstall ? `<button class="btn plein" data-invitation="installer">${I.telecharger}Installer l'appli</button><p class="w-note">Un seul geste. Si rien ne se passe, suivez les étapes ci-dessous.</p>` : ""}
       ${pasInstallation()}
     </div>
+    <p class="pi-note">Elle s'ouvre en plein écran et continue sans réseau. Rien à chercher dans un magasin d'applications.</p>
     <div class="valider" style="grid-template-columns:1fr"><button class="btn ${inviteInstall ? "" : "plein"}" data-invitation="entrer">C'est fait, entrer dans l'appli</button></div>
     <p class="c-pied"><button class="lien" data-invitation="entrer">Plus tard</button></p></div>`;
   return `${DEMO}<div class="connexion">${tete}
-    <div class="c-tete centre">${avatar(faux, true)}<p class="eq-etape">Étape 1 sur 2</p><h1>Bienvenue ${esc(d.n)}</h1><p class="sous">${d.par ? esc(d.par) + " vous ouvre" : "Voici"} l'accès à l'appli de stock${d.e ? " de " + esc(d.e) : ""}. Choisissez votre mot de passe : personne d'autre ne le connaîtra.</p></div>
+    <div class="c-tete centre">${avatar(faux, true)}<p class="eq-etape">Étape 1 sur 2</p><h1>Bienvenue ${esc(d.n)}</h1><p class="sous es-etat">${d.par ? esc(d.par) + " vous ouvre" : "Voici"} l'accès à l'appli de stock${d.e ? " de " + esc(d.e) : ""}.</p></div>
     <form class="c-form verre" data-form="invitation">
       <p class="eq-ident">Votre identifiant<b class="code">${esc(d.i)}</b></p>
       <label class="champ">Mot de passe, 6 caractères au moins${champMdp("new-password")}</label>
@@ -413,7 +415,7 @@ function vInvitation() {
       <p class="message" role="alert">${esc(invitation.msg)}</p>
       <button class="btn plein">Créer mon accès</button>
     </form>
-    <p class="c-pied">Ce lien marche jusqu'au ${fin}.</p></div>`;
+    <p class="c-pied">Personne d'autre ne connaîtra votre mot de passe. Ce lien marche jusqu'au ${fin}.</p></div>`;
 }
 function accepterInvitation(f) {
   const d = invitation.d, mdp = f.mdp.value, mdp2 = f.mdp2.value;

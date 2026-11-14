@@ -200,15 +200,17 @@ function wActions() {
   // ni pour une livraison que « À faire » montre déjà sur le même accueil.
   const barre = cfg().barre.filter(k => permis(k)).slice(0, 3), double = k => barre.includes(k);
   const avecTaches = (ALIAS[vue.nom] || vue.nom) === "accueil" && cfg().accueil.some(([k]) => k === "taches") && session.profil !== "chauffeur";
-  return `${actif("MO-RES") && !double("preparer") ? tuilePreparer() : ""}
-  <div class="t-tuiles">
+  // Des raccourcis ronds, comme sur l'accueil du gérant : le pictogramme d'abord, le mot dessous. Les comptes se lisent sur l'écran ouvert.
+  const prep = S.reservations.filter(r => ["Confirmée", "Préparée"].includes(r.statut) && r.debut <= isoJour(Date.now() + 10 * JOUR_MS)).length;
+  return `<nav class="t-tuiles dp-gestes" aria-label="Gestes du dépôt">
+    ${actif("MO-RES") && !double("preparer") ? `<button class="t-tuile" data-aller="preparer"><span class="pastille">${I.camion}</span><div><b>Préparer un départ</b><small>${prep} départ${prep > 1 ? "s" : ""} prévu${prep > 1 ? "s" : ""} dans les 10 jours</small></div></button>` : ""}
     ${actif("MO-KIT") && S.kits.length && !double("kits") ? `<button class="t-tuile" data-aller="kits"><span class="pastille">${I.kit}</span><div><b>Sortir un kit</b></div></button>` : ""}
     ${aDesPrets() && !double("recuperer") ? `<button class="t-tuile" data-aller="recuperer"><span class="pastille">${I.retour}</span><div><b>${V("retourTitre")}</b><small>${n} ${n > 1 ? V("retourSous") : V("retourSous").replace(/^(\S+?)s(\s|$)/, "$1$2").replace(/(prêté|sorti)s\b/, "$1")}</small></div></button>` : ""}
-    ${double("reception") || (avecTaches && attendues) ? "" : `<button class="t-tuile" data-aller="reception"><span class="pastille">${I[SECTIONS.reception.i]}</span><div><b>Réceptionner une livraison</b><small>${attendues} attendue${attendues > 1 ? "s" : ""}</small></div></button>`}
+    ${double("reception") || (avecTaches && attendues) ? "" : `<button class="t-tuile" data-aller="reception"><span class="pastille">${I[SECTIONS.reception.i]}</span><div><b>Réception</b><small>${attendues} livraison${attendues > 1 ? "s" : ""} attendue${attendues > 1 ? "s" : ""}</small></div></button>`}
     <button class="t-tuile" data-aller="zones"><span class="pastille">${I.compter}</span><div><b>Compter une zone</b></div></button>
     <button class="t-tuile" data-aller="chercher"><span class="pastille">${I.loupe}</span><div><b>Chercher un objet</b></div></button>
     ${double("jour") ? "" : `<button class="t-tuile" data-aller="jour"><span class="pastille">${I[SECTIONS.jour.i]}</span><div><b>Ma journée</b></div></button>`}
-  </div>`;
+  </nav>`;
 }
 
 /* À faire : la liste se construit seule, à partir des données et des droits de la personne. */
@@ -243,6 +245,12 @@ function wTaches(tout, filtre) {
   const blocDates = !tout && vue.nom === "accueil" && cfg().accueil.some(([k]) => k === "peremption");
   const l = taches().filter(x => !(x.k === "dlc" && blocDates) && (!filtre || filtre(x)));
   const vus = tout || tachesToutes || l.length <= TACHES_VUES + 1 ? l : l.slice(0, TACHES_VUES), reste = l.length - vus.length;
+  // Le magasinier lit ses tâches comme le gérant lit son accueil : une puce de la couleur du geste, une phrase, une ligne grise, un chevron.
+  if (!tout && session && session.profil === "terrain") return `<h3 class="w-titre dp-titre">À faire</h3>
+  ${l.length ? `<ul class="es-lignes dp-taches">${vus.map(x => {
+    const corps = `<i style="--c:var(--${x.c})"></i><span>${esc(x.t)}<small>${esc(x.s)}</small></span>`;
+    return `<li>${x.bouton ? `<div class="es-ligne">${corps}${x.bouton}</div>` : `<button class="es-ligne" ${x.a}>${corps}<span class="chev">${I.chevron}</span></button>`}</li>`;
+  }).join("")}${reste ? `<li><button class="es-ligne es-suite" data-taches-tout><span>Voir les ${reste} autres</span><span class="chev">${I.chevron}</span></button></li>` : ""}</ul>` : `<p class="es-rien">Rien à faire pour l'instant.</p>`}`;
   return `<h3 class="w-titre">À faire ${l.length ? `<span class="compte">${l.length}</span>` : ""}</h3>
   ${l.length ? `<ul class="taches">${vus.map(x => {
     const corps = `<span class="pastille">${x.i}</span><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small>${x.p !== undefined ? `<i class="barre"><i style="width:${Math.round(x.p * 100)}%"></i></i>` : ""}</span>`;
@@ -337,7 +345,36 @@ function wAssistance() {
 }
 
 /* Page Analyses : les courbes choisies pour ce rôle et ce métier */
-const vAnalyses = () => `<h1>Analyses</h1><p class="sous">Touchez une barre ou un point pour lire sa valeur.</p>${bento(cfg().analyses)}`;
+// En tête, les trois chiffres de la période : le premier en grand, posé sur le fond, les deux autres en lignes.
+// Ensuite une question par courbe : on touche la question, sa courbe s'ouvre (une seule à la fois).
+function trioAnalyses() {
+  const [s, sAvant] = periodeSur(m => m.type === "Prêt" || m.type === "Sortie");
+  const [vp, pAvant] = periodeSur(m => m.type === "Perte");
+  const [refac] = periodeSur(m => m.type === "Perte" && m.refac);
+  const ecart = (a, b) => { if (!b) return ""; const d = Math.round((a - b) / b * 100); return d === 0 ? `Autant que les ${periode} jours d'avant` : `${Math.abs(d)} % de ${d > 0 ? "plus" : "moins"} que les ${periode} jours d'avant`; };
+  const chiffre = argent(s), taux = (s ? Math.round(vp / (s + vp) * 1000) / 10 : 0).toLocaleString("fr-FR") + " %";
+  const lignes = [piLigne({ c: "alerte", t: "Cassé ou perdu", s: ecart(vp, pAvant), v: argent(vp) }),
+    (S.metier || "loueur") === "loueur" ? piLigne({ c: "neutre", t: "Refacturable", s: `${vp ? Math.round(refac / vp * 100) : 0} % des pertes`, v: argent(refac) })
+      : piLigne({ c: "neutre", t: "Taux de perte", s: "De la valeur sortie", v: taux })];
+  return `<div class="segments" role="group" aria-label="Période">${[7, 30, 90].map(n => `<button data-periode="${n}" aria-pressed="${periode === n}">${n} jours</button>`).join("")}</div>
+  <div class="trio pi-trio"><div class="es-hero"><small>${esc(V("sortiesMot"))} en ${periode} jours</small><b class="es-chiffre${chiffre.length > 11 ? " es-long" : ""}">${chiffre}</b><p>${ecart(s, sAvant)}</p></div>
+  ${piCarte("", lignes)}</div>`;
+}
+function vAnalyses() {
+  const l = (cfg().analyses || []).filter(([k]) => WIDGETS[k] && (!WIDGETS[k].si || WIDGETS[k].si()));
+  if (entree) courbeOuverte = null;
+  let rendus;
+  modeQuestions = true;
+  try { rendus = l.filter(([k]) => k !== "trio").map(([k, t]) => [k, t, WIDGETS[k].r()]).filter(x => x[2]); } finally { modeQuestions = false; }
+  const courbes = rendus.filter(x => x[2].startsWith('<details class="pi-q"')), autres = rendus.filter(x => !courbes.includes(x));
+  if (courbeOuverte === null || (courbeOuverte && !courbes.some(([k]) => k === courbeOuverte))) courbeOuverte = courbes.length ? courbes[0][0] : "";
+  return `<h1>Analyses</h1><div class="pi-page">
+  ${l.some(([k]) => k === "trio") ? `<div class="bento pi-an-tete"><section class="w w-l nu" data-w="trio">${trioAnalyses()}</section></div>` : ""}
+  ${courbes.length ? `<div class="bento pi-courbes"><h2>Touchez une question pour voir sa courbe</h2>${courbes.map(([k, , h]) => `<section class="w w-l nu" data-w="${k}">${h.replace('<details class="pi-q"', `<details class="pi-q" data-courbe="${k}"${k === courbeOuverte ? " open" : ""}`)}</section>`).join("")}</div>
+  <p class="pi-note">Touchez une barre ou un point pour lire sa valeur.</p>` : ""}
+  ${autres.length ? `<div class="pi-autres">${bento(autres.map(([k, t]) => [k, t]))}</div>` : ""}
+  ${l.length ? "" : `<p class="es-etat">Rien à afficher ici pour l'instant.</p>`}</div>`;
+}
 
 /* =================================================================
    ESPACE INSTALLATEUR : ce que nous réglons chez chaque client

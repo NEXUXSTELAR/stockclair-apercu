@@ -166,12 +166,13 @@ function arrets() {
   });
   return l.sort((a, b) => a.jour.localeCompare(b.jour) || (a.type === "reprise" ? -1 : 1));
 }
-function carteArret(x) {
-  const r = x.r, c = (S.clientsLoc || []).find(k => k.id === r.client), liv = x.type === "livraison";
+// Un seul bouton plein par écran : celui du prochain arrêt. Les suivants sont en contour.
+function carteArret(x, premier) {
+  const r = x.r, fort = premier === true ? " plein" : "", c = (S.clientsLoc || []).find(k => k.id === r.client), liv = x.type === "livraison";
   const bon = S.bons.slice().reverse().find(b => b.evenement === r.nom && b.type === "sortie");
   const action = liv
-    ? (bon ? `<button class="btn petit plein" data-aller="bon" data-arg="${bon.id}">${bon.signature ? "Bon signé · voir" : "Faire signer le client"}</button>` : `<button class="btn petit" data-prep="${r.id}">À charger au dépôt</button>`)
-    : `<button class="btn petit plein" data-ev="${esc(r.nom)}">Reprendre le matériel</button>`;
+    ? (bon ? `<button class="btn petit${bon.signature ? "" : fort}" data-aller="bon" data-arg="${bon.id}">${bon.signature ? "Bon signé · voir" : "Faire signer le client"}</button>` : `<button class="btn petit" data-prep="${r.id}">À charger au dépôt</button>`)
+    : `<button class="btn petit${fort}" data-ev="${esc(r.nom)}">Reprendre le matériel</button>`;
   return `<article class="arret c-${liv ? "sortie" : "retour"}">
     <div class="arret-tete"><span class="pastille">${liv ? I.sortie : I.retour}</span>
       <div><b>${liv ? "Livraison" : "Reprise"} · ${esc(r.nom)}</b><small>${c ? esc(c.nom) + " · " : ""}${esc(r.adresse || "Adresse à compléter")}</small></div>
@@ -185,13 +186,14 @@ function vTournee() {
   const l = arrets(), jours = [...new Set(l.map(x => x.jour))];
   const nomJour = d => d === aujourdHui() ? "Aujourd'hui" : d === isoJour(Date.now() + JOUR_MS) ? "Demain" : dateLongue(d);
   return `<h1>Tournée</h1><p class="sous">Les trois prochains jours.</p>
-  ${jours.map(d => `<h2>${nomJour(d)}</h2><div class="arrets">${l.filter(x => x.jour === d).map(carteArret).join("")}</div>`).join("") || `<p class="vide">Rien de prévu dans les trois prochains jours.</p>`}`;
+  ${jours.map(d => `<h2>${nomJour(d)}</h2><div class="arrets">${l.filter(x => x.jour === d).map(x => carteArret(x, x === l[0])).join("")}</div>`).join("") || `<p class="vide">Rien de prévu dans les trois prochains jours.</p>`}`;
 }
 function wTournee() {
   const l = arrets(), auj = l.filter(x => x.jour === aujourdHui()), dem = l.filter(x => x.jour !== aujourdHui());
-  return `<div class="w-entete"><h3 class="w-titre">${I.camion}Ma tournée</h3><button class="btn petit" data-racine="tournee">Tout voir</button></div>
+  return `<h3 class="w-titre dp-titre">Ma tournée</h3>
   <p class="tournee-ligne"><span><b>${auj.length}</b> arrêt${auj.length > 1 ? "s" : ""} aujourd'hui</span><span><b>${dem.length}</b> les jours suivants</span></p>
-  ${l.slice(0, 2).map(carteArret).join("")}`;
+  <div class="arrets">${l.slice(0, 2).map((x, i) => carteArret(x, i === 0)).join("")}</div>
+  <button class="es-ligne es-suite dp-tout" data-racine="tournee"><span>Voir toute la tournée</span><span class="chev">${I.chevron}</span></button>`;
 }
 
 /* ---------------- Devis de l'installateur ---------------- */
